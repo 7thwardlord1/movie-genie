@@ -1,6 +1,6 @@
 import { TMDBMovie, TMDBTVShow, TMDBSearchResponse } from '@/types/tmdb';
 
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '';
+const TMDB_API_KEY = '312653f91a7437337179fedb42e6f36a';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 

@@ -5,9 +5,9 @@ import { getInitialQuestions, getNextQuestion, filterCandidates, pickGuess } fro
 
 // Tuning constants for better precision
 const MIN_CANDIDATES_TO_GUESS = 3; // Only guess when we're confident
-const MAX_QUESTIONS_BEFORE_GUESS = 25; // Ask more questions for precision
+const MAX_QUESTIONS_BEFORE_GUESS = 30; // Ask more questions for precision
 const HIGH_CONFIDENCE_THRESHOLD = 2; // If only 2 candidates, we're very confident
-const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 8; // Don't guess too early
+const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 10; // Don't guess too early
 
 const initialGameState: GameState = {
   mediaType: null,

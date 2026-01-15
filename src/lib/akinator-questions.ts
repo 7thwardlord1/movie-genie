@@ -328,6 +328,218 @@ const FRANCHISE_KEYWORDS = [
 ];
 
 // ============================================================================
+// NEW KEYWORD DATABASES FOR DIRECTORS, ACTORS, FRANCHISES, LOCATIONS
+// ============================================================================
+
+const NOLAN_KEYWORDS = [
+  'nolan', 'inception', 'interstellar', 'dark knight', 'tenet', 'dunkirk', 
+  'memento', 'prestige', 'oppenheimer', 'insomnia', 'following', 'batman begins'
+];
+
+const TARANTINO_KEYWORDS = [
+  'tarantino', 'pulp fiction', 'kill bill', 'inglourious basterds', 'django unchained',
+  'reservoir dogs', 'hateful eight', 'once upon a time in hollywood', 'jackie brown',
+  'death proof', 'grindhouse'
+];
+
+const SPIELBERG_KEYWORDS = [
+  'spielberg', 'jurassic', 'schindler', 'saving private ryan', 'e.t.', 'jaws',
+  'indiana jones', 'ready player', 'lincoln', 'bridge of spies', 'the post',
+  'west side story', 'minority report', 'catch me if you can', 'war horse'
+];
+
+const SCORSESE_KEYWORDS = [
+  'scorsese', 'goodfellas', 'casino', 'taxi driver', 'raging bull', 'wolf of wall street',
+  'the departed', 'gangs of new york', 'the irishman', 'shutter island', 'killers of the flower moon',
+  'cape fear', 'aviator', 'silence', 'hugo'
+];
+
+const VILLENEUVE_KEYWORDS = [
+  'villeneuve', 'dune', 'blade runner 2049', 'arrival', 'sicario', 'prisoners',
+  'enemy', 'incendies', 'polytechnique'
+];
+
+const RIDLEY_SCOTT_KEYWORDS = [
+  'ridley scott', 'gladiator', 'alien', 'blade runner', 'martian', 'prometheus',
+  'covenant', 'kingdom of heaven', 'black hawk down', 'american gangster',
+  'thelma & louise', 'robin hood', 'napoleon', 'house of gucci', 'the last duel'
+];
+
+const JAMES_CAMERON_KEYWORDS = [
+  'james cameron', 'avatar', 'titanic', 'terminator', 'aliens', 'true lies',
+  'the abyss', 'piranha ii', 'way of water', 't2', 'judgment day'
+];
+
+const WES_ANDERSON_KEYWORDS = [
+  'wes anderson', 'grand budapest hotel', 'moonrise kingdom', 'fantastic mr. fox',
+  'isle of dogs', 'french dispatch', 'royal tenenbaums', 'rushmore', 'darjeeling',
+  'life aquatic', 'asteroid city', 'bottle rocket'
+];
+
+const DICAPRIO_KEYWORDS = [
+  'dicaprio', 'leonardo', 'titanic', 'inception', 'wolf of wall street', 'revenant',
+  'shutter island', 'gatsby', 'django', 'departed', 'aviator', 'blood diamond',
+  'killers of the flower moon', "don't look up", 'once upon a time in hollywood'
+];
+
+const TOM_HANKS_KEYWORDS = [
+  'tom hanks', 'forrest gump', 'cast away', 'saving private ryan', 'green mile',
+  'philadelphia', 'big', 'toy story', 'captain phillips', 'sully', 'apollo 13',
+  'road to perdition', 'bridge of spies', 'the post', 'finch', 'a man called otto',
+  'da vinci code', 'inferno', 'news of the world'
+];
+
+const KEANU_REEVES_KEYWORDS = [
+  'keanu reeves', 'john wick', 'matrix', 'speed', 'point break', 'bill and ted',
+  'constantine', 'knock knock', 'man of tai chi', 'the day the earth stood still',
+  'ronin', 'cyberpunk', 'toy story 4'
+];
+
+const MARGOT_ROBBIE_KEYWORDS = [
+  'margot robbie', 'barbie', 'harley quinn', 'suicide squad', 'birds of prey',
+  'wolf of wall street', 'i tonya', 'once upon a time in hollywood', 'babylon',
+  'amsterdam', 'bombshell', 'focus', 'legend of tarzan'
+];
+
+const TIMOTHEE_CHALAMET_KEYWORDS = [
+  'timothée chalamet', 'timothee chalamet', 'dune', 'call me by your name',
+  'little women', 'beautiful boy', 'wonka', 'bones and all', 'the king',
+  'lady bird', 'hot summer nights', 'don\'t look up'
+];
+
+const ROCK_KEYWORDS = [
+  'dwayne johnson', 'the rock', 'fast and furious', 'jumanji', 'black adam',
+  'san andreas', 'rampage', 'skyscraper', 'jungle cruise', 'red notice',
+  'central intelligence', 'baywatch', 'moana'
+];
+
+// Franchise-specific keywords
+const STAR_WARS_KEYWORDS = [
+  'star wars', 'jedi', 'sith', 'skywalker', 'mandalorian', 'force awakens',
+  'darth', 'yoda', 'lightsaber', 'empire strikes back', 'return of the jedi',
+  'phantom menace', 'attack of the clones', 'revenge of the sith', 'rogue one',
+  'solo', 'andor', 'ahsoka', 'book of boba', 'obi-wan', 'acolyte'
+];
+
+const HARRY_POTTER_KEYWORDS = [
+  'harry potter', 'hogwarts', 'wizard', 'voldemort', 'hermione', 'dumbledore',
+  'fantastic beasts', "philosopher's stone", "sorcerer's stone", 'chamber of secrets',
+  'prisoner of azkaban', 'goblet of fire', 'order of the phoenix', 'half-blood prince',
+  'deathly hallows', 'grindelwald'
+];
+
+const FAST_FURIOUS_KEYWORDS = [
+  'fast', 'furious', 'dom', 'toretto', 'fast five', 'tokyo drift', 'hobbs and shaw',
+  'f9', 'fast x', 'ride or die', '2 fast 2 furious', 'family'
+];
+
+const JAMES_BOND_KEYWORDS = [
+  'james bond', 'bond', '007', 'skyfall', 'spectre', 'casino royale', 'no time to die',
+  'quantum of solace', 'goldeneye', 'die another day', 'tomorrow never dies',
+  'dr. no', 'goldfinger', 'thunderball', 'license to kill'
+];
+
+const MISSION_IMPOSSIBLE_KEYWORDS = [
+  'mission impossible', 'mission: impossible', 'ethan hunt', 'tom cruise',
+  'fallout', 'rogue nation', 'ghost protocol', 'dead reckoning'
+];
+
+const JURASSIC_KEYWORDS = [
+  'jurassic park', 'jurassic world', 'dinosaur', 'velociraptor', 't-rex',
+  'lost world', 'fallen kingdom', 'dominion', 'rex', 'raptor'
+];
+
+const BATMAN_KEYWORDS = [
+  'batman', 'gotham', 'dark knight', 'joker', 'bruce wayne', 'riddler', 'penguin',
+  'catwoman', 'bane', 'two-face', 'scarecrow', 'arkham', 'batmobile'
+];
+
+const SPIDER_MAN_KEYWORDS = [
+  'spider-man', 'spiderman', 'peter parker', 'miles morales', 'spider-verse',
+  'homecoming', 'far from home', 'no way home', 'venom', 'multiverse'
+];
+
+const LOTR_KEYWORDS = [
+  'lord of the rings', 'hobbit', 'middle-earth', 'frodo', 'gandalf', 'sauron',
+  'mordor', 'fellowship', 'two towers', 'return of the king', 'rings of power',
+  'tolkien', 'bilbo', 'gollum', 'aragorn', 'legolas'
+];
+
+const PIRATES_KEYWORDS = [
+  'pirates of the caribbean', 'jack sparrow', 'caribbean', 'black pearl',
+  'dead men tell no tales', "dead man's chest", "at world's end", 'curse of the black pearl'
+];
+
+// Location and era keywords
+const WW2_KEYWORDS = [
+  'world war 2', 'world war ii', 'wwii', 'ww2', 'nazi', 'hitler', 'normandy',
+  'd-day', '1940s', 'holocaust', 'auschwitz', 'pearl harbor', 'stalingrad',
+  'blitz', 'dunkirk', 'resistance', 'occupation', 'third reich'
+];
+
+const MEDIEVAL_KEYWORDS = [
+  'medieval', 'knight', 'castle', 'king', 'queen', 'kingdom', 'sword', 'throne',
+  'crusade', 'middle ages', 'dragon', 'lord', 'noble', 'jousting', 'siege'
+];
+
+const DYSTOPIAN_KEYWORDS = [
+  'dystopia', 'dystopian', 'hunger games', 'divergent', 'maze runner', '1984',
+  'brave new world', 'handmaid', 'blade runner', 'children of men', 'v for vendetta',
+  'equilibrium', 'gattaca', 'fahrenheit', 'brave new'
+];
+
+const NEW_YORK_KEYWORDS = [
+  'new york', 'nyc', 'manhattan', 'brooklyn', 'bronx', 'queens', 'central park',
+  'empire state', 'wall street', 'times square', 'statue of liberty', 'harlem',
+  'broadway', 'fifth avenue', 'big apple'
+];
+
+const PARIS_KEYWORDS = [
+  'paris', 'france', 'eiffel', 'louvre', 'seine', 'montmartre', 'champs-élysées',
+  'notre-dame', 'versailles', 'french', 'parisien', 'parisienne'
+];
+
+const LONDON_KEYWORDS = [
+  'london', 'england', 'british', 'uk', 'thames', 'big ben', 'westminster',
+  'buckingham', 'english', 'britain', 'oxford', 'cambridge'
+];
+
+const JAPAN_KEYWORDS = [
+  'japan', 'japanese', 'tokyo', 'samurai', 'ninja', 'yakuza', 'osaka', 'kyoto',
+  'shogun', 'ronin', 'bushido', 'shinobi', 'katana', 'geisha', 'emperor'
+];
+
+// Narrative elements keywords
+const TWIST_KEYWORDS = [
+  'twist', 'fight club', 'sixth sense', 'usual suspects', 'shutter island',
+  'gone girl', 'memento', 'prestige', 'identity', 'oldboy', 'se7en',
+  'the others', 'saw', 'unbreakable', 'split', 'primal fear'
+];
+
+const FOUND_FOOTAGE_KEYWORDS = [
+  'found footage', 'blair witch', 'paranormal activity', 'cloverfield', 'rec',
+  'chronicle', 'vhs', 'unfriended', 'searching', 'host', 'creep'
+];
+
+const OSCAR_KEYWORDS = [
+  'oscar', 'academy award', 'best picture', 'parasite', 'moonlight', 'spotlight',
+  'birdman', 'shape of water', 'green book', 'nomadland', 'coda', 'oppenheimer',
+  'everything everywhere', 'argo', 'artist', '12 years a slave'
+];
+
+const APPLE_TV_KEYWORDS = [
+  'apple tv', 'apple+', 'ted lasso', 'severance', 'the morning show', 'foundation',
+  'for all mankind', 'see', 'invasion', 'silo', 'slow horses', 'shrinking',
+  'pachinko', 'coda', 'finch', 'the banker', 'wolfwalkers'
+];
+
+const DISNEY_PLUS_KEYWORDS = [
+  'disney+', 'disney plus', 'mandalorian', 'wandavision', 'loki', 'falcon and winter soldier',
+  'hawkeye', 'moon knight', 'she-hulk', 'ms marvel', 'obi-wan', 'andor', 'ahsoka',
+  'book of boba', 'willow', 'national treasure', 'percy jackson'
+];
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -807,6 +1019,246 @@ export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
       category: 'subgenre',
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ANIME_KEYWORDS) || (hasGenre(item, [16]) && item.original_language === 'ja'), answer)
     },
+
+    // ========== DIRECTORS (10) ==========
+    {
+      id: 'nolan',
+      text: 'Le réalisateur est-il Christopher Nolan ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, NOLAN_KEYWORDS), answer)
+    },
+    {
+      id: 'tarantino',
+      text: 'Le réalisateur est-il Quentin Tarantino ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TARANTINO_KEYWORDS), answer)
+    },
+    {
+      id: 'spielberg',
+      text: 'Le réalisateur est-il Steven Spielberg ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPIELBERG_KEYWORDS), answer)
+    },
+    {
+      id: 'scorsese',
+      text: 'Le réalisateur est-il Martin Scorsese ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SCORSESE_KEYWORDS), answer)
+    },
+    {
+      id: 'villeneuve',
+      text: 'Le réalisateur est-il Denis Villeneuve ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, VILLENEUVE_KEYWORDS), answer)
+    },
+    {
+      id: 'ridley_scott',
+      text: 'Le réalisateur est-il Ridley Scott ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, RIDLEY_SCOTT_KEYWORDS), answer)
+    },
+    {
+      id: 'james_cameron',
+      text: 'Le réalisateur est-il James Cameron ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAMES_CAMERON_KEYWORDS), answer)
+    },
+    {
+      id: 'wes_anderson',
+      text: 'Le réalisateur est-il Wes Anderson ?',
+      category: 'director',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, WES_ANDERSON_KEYWORDS), answer)
+    },
+
+    // ========== ACTORS (8) ==========
+    {
+      id: 'dicaprio',
+      text: 'Y a-t-il Leonardo DiCaprio ?',
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DICAPRIO_KEYWORDS), answer)
+    },
+    {
+      id: 'tom_hanks',
+      text: 'Y a-t-il Tom Hanks ?',
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TOM_HANKS_KEYWORDS), answer)
+    },
+    {
+      id: 'keanu_reeves',
+      text: 'Y a-t-il Keanu Reeves ?',
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, KEANU_REEVES_KEYWORDS), answer)
+    },
+    {
+      id: 'margot_robbie',
+      text: 'Y a-t-il Margot Robbie ?',
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MARGOT_ROBBIE_KEYWORDS), answer)
+    },
+    {
+      id: 'timothee_chalamet',
+      text: 'Y a-t-il Timothée Chalamet ?',
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TIMOTHEE_CHALAMET_KEYWORDS), answer)
+    },
+    {
+      id: 'the_rock',
+      text: "Y a-t-il Dwayne 'The Rock' Johnson ?",
+      category: 'actor',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ROCK_KEYWORDS), answer)
+    },
+
+    // ========== SPECIFIC FRANCHISES (10) ==========
+    {
+      id: 'star_wars',
+      text: "Est-ce de l'univers Star Wars ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, STAR_WARS_KEYWORDS), answer)
+    },
+    {
+      id: 'harry_potter',
+      text: "Est-ce de l'univers Harry Potter ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, HARRY_POTTER_KEYWORDS), answer)
+    },
+    {
+      id: 'fast_furious',
+      text: "Est-ce de l'univers Fast & Furious ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FAST_FURIOUS_KEYWORDS), answer)
+    },
+    {
+      id: 'james_bond_franchise',
+      text: "Est-ce de l'univers James Bond ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAMES_BOND_KEYWORDS), answer)
+    },
+    {
+      id: 'mission_impossible',
+      text: "Est-ce de l'univers Mission Impossible ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MISSION_IMPOSSIBLE_KEYWORDS), answer)
+    },
+    {
+      id: 'jurassic_franchise',
+      text: "Est-ce de l'univers Jurassic Park ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JURASSIC_KEYWORDS), answer)
+    },
+    {
+      id: 'batman_franchise',
+      text: "Est-ce de l'univers Batman ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, BATMAN_KEYWORDS), answer)
+    },
+    {
+      id: 'spiderman_franchise',
+      text: "Est-ce de l'univers Spider-Man ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPIDER_MAN_KEYWORDS), answer)
+    },
+    {
+      id: 'lotr_franchise',
+      text: "Est-ce de l'univers Le Seigneur des Anneaux ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, LOTR_KEYWORDS), answer)
+    },
+    {
+      id: 'pirates_franchise',
+      text: "Est-ce de l'univers Pirates des Caraïbes ?",
+      category: 'specific_franchise',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PIRATES_KEYWORDS), answer)
+    },
+
+    // ========== ERAS & LOCATIONS (12) ==========
+    {
+      id: 'ww2',
+      text: "L'action se passe-t-elle pendant la Seconde Guerre mondiale ?",
+      category: 'era',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, WW2_KEYWORDS), answer)
+    },
+    {
+      id: 'medieval',
+      text: "L'action se passe-t-elle au Moyen Âge ?",
+      category: 'era',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MEDIEVAL_KEYWORDS), answer)
+    },
+    {
+      id: 'future',
+      text: "L'action se passe-t-elle dans le futur ?",
+      category: 'era',
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [878]) || matchesKeywords(item, DYSTOPIAN_KEYWORDS), answer)
+    },
+    {
+      id: 'dystopian',
+      text: 'Est-ce dans un futur dystopique ?',
+      category: 'era',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DYSTOPIAN_KEYWORDS), answer)
+    },
+    {
+      id: 'new_york',
+      text: "L'action se passe-t-elle à New York ?",
+      category: 'location',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, NEW_YORK_KEYWORDS), answer)
+    },
+    {
+      id: 'paris',
+      text: "L'action se passe-t-elle à Paris ?",
+      category: 'location',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PARIS_KEYWORDS), answer)
+    },
+    {
+      id: 'london',
+      text: "L'action se passe-t-elle à Londres ?",
+      category: 'location',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, LONDON_KEYWORDS), answer)
+    },
+    {
+      id: 'japan_location',
+      text: "L'action se passe-t-elle au Japon ?",
+      category: 'location',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAPAN_KEYWORDS) || item.original_language === 'ja', answer)
+    },
+
+    // ========== NARRATIVE ELEMENTS (8) ==========
+    {
+      id: 'twist_ending',
+      text: 'Y a-t-il un twist/retournement de situation majeur ?',
+      category: 'narrative',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TWIST_KEYWORDS), answer)
+    },
+    {
+      id: 'found_footage',
+      text: 'Est-ce tourné en found footage / caméra à l\'épaule ?',
+      category: 'narrative',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FOUND_FOOTAGE_KEYWORDS), answer)
+    },
+    {
+      id: 'won_oscar',
+      text: 'A-t-il remporté un Oscar majeur (meilleur film) ?',
+      category: 'narrative',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, OSCAR_KEYWORDS), answer)
+    },
+    {
+      id: 'long_movie',
+      text: 'Dure-t-il plus de 2h30 ?',
+      category: 'narrative',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, [...NOLAN_KEYWORDS, ...SCORSESE_KEYWORDS, ...LOTR_KEYWORDS, 'titanic', 'avatar', 'oppenheimer', 'killers']), answer)
+    },
+
+    // ========== STREAMING PLATFORMS (4) ==========
+    {
+      id: 'apple_tv',
+      text: 'Est-ce une production Apple TV+ ?',
+      category: 'platform',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, APPLE_TV_KEYWORDS), answer)
+    },
+    {
+      id: 'disney_plus',
+      text: 'Est-ce une production Disney+ ?',
+      category: 'platform',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DISNEY_PLUS_KEYWORDS), answer)
+    },
   ];
 
   // ========== TV-SPECIFIC QUESTIONS (12) ==========
@@ -934,9 +1386,16 @@ const categoryPriority: Record<string, number> = {
   'language': 3,
   'theme': 4,
   'franchise': 5,
+  'specific_franchise': 5,
   'subgenre': 6,
   'popularity': 7,
   'tv': 3,
+  'director': 8,
+  'actor': 8,
+  'era': 4,
+  'location': 6,
+  'narrative': 7,
+  'platform': 5,
 };
 
 export function getNextQuestion(

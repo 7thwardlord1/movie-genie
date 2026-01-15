@@ -41,10 +41,11 @@ export function LandingScreen({ onStart, isLoading }: LandingScreenProps) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="text-5xl md:text-6xl font-bold mb-4 tracking-tight"
+          className="text-5xl md:text-6xl font-bold mb-4 tracking-tight flex items-center justify-center gap-3"
         >
           <span className="text-foreground">Ciné</span>
-          <span className="text-primary">Guess</span>
+          <span className="text-primary">mator</span>
+          <span className="text-4xl md:text-5xl">🧞</span>
         </motion.h1>
 
         {/* Subtitle */}
@@ -106,7 +107,7 @@ export function LandingScreen({ onStart, isLoading }: LandingScreenProps) {
           transition={{ delay: 0.7, duration: 0.5 }}
           className="mt-16 text-xs text-muted-foreground/60"
         >
-          Plus de 600 films et séries • 80+ questions intelligentes
+          Plus de 600 films et séries • 120+ questions intelligentes
         </motion.p>
       </motion.div>
     </div>

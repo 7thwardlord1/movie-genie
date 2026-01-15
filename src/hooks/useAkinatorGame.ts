@@ -4,10 +4,9 @@ import { getMediaPool } from '@/lib/tmdb';
 import { getInitialQuestions, getNextQuestion, filterCandidates, pickGuess } from '@/lib/akinator-questions';
 
 // Tuning constants for better precision
-const MIN_CANDIDATES_TO_GUESS = 2;
+const MIN_CANDIDATES_TO_GUESS = 1; // only guess when a single candidate remains
 const MAX_QUESTIONS_BEFORE_GUESS = 40;
-const HIGH_CONFIDENCE_THRESHOLD = 2;
-const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 15;
+const MIN_QUESTIONS_BEFORE_GUESS = 5; // require a few questions before any guess
 
 const initialGameState: GameState = {
   mediaType: null,
@@ -65,10 +64,12 @@ export function useAkinatorGame() {
       const newCandidates = filterCandidates(prev.candidates, currentQuestion, answer);
       const newQuestionsAsked = prev.questionsAsked + 1;
 
-      const shouldGuess = 
-        newCandidates.length <= HIGH_CONFIDENCE_THRESHOLD ||
-        newQuestionsAsked >= MAX_QUESTIONS_BEFORE_GUESS ||
-        (newQuestionsAsked >= MIN_QUESTIONS_BEFORE_EARLY_GUESS && newCandidates.length <= MIN_CANDIDATES_TO_GUESS);
+      // Only guess when there is a single candidate, we reached a hard question limit,
+      // or when the player is fatigued (few candidates left after many questions)
+      const shouldGuess =
+        (newCandidates.length === 1) ||
+        (newQuestionsAsked >= MAX_QUESTIONS_BEFORE_GUESS) ||
+        (newCandidates.length <= 5 && newQuestionsAsked >= 20);
 
       if (shouldGuess) {
         setIsGuessing(true);
@@ -128,34 +129,27 @@ export function useAkinatorGame() {
           };
         }
 
-        if (newCandidates.length <= MIN_CANDIDATES_TO_GUESS) {
-          const newGuess = pickGuess(newCandidates);
-          return {
-            ...prev,
-            candidates: newCandidates,
-            currentGuess: newGuess,
-          };
-        }
-
+        // Try to continue asking questions to further disambiguate instead of immediately guessing
         const askedIds = Object.keys(prev.answers);
         const nextQuestion = getNextQuestion(questions, askedIds, newCandidates);
         
-        if (!nextQuestion) {
-          const newGuess = pickGuess(newCandidates);
+        if (nextQuestion) {
+          // Ask another question to avoid immediate retries and reduce frustration
+          setCurrentQuestion(nextQuestion);
+          setIsGuessing(false);
           return {
             ...prev,
             candidates: newCandidates,
-            currentGuess: newGuess,
+            currentGuess: null,
           };
         }
 
-        setCurrentQuestion(nextQuestion);
-        setIsGuessing(false);
-
+        // No useful question left -> fallback to another guess
+        const newGuess = pickGuess(newCandidates);
         return {
           ...prev,
           candidates: newCandidates,
-          currentGuess: null,
+          currentGuess: newGuess,
         };
       });
     }

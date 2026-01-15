@@ -2,77 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Cinema Akinator Design System - Dark, immersive, streaming-inspired */
+/* Cinema Design System - Authentic, minimalist, film-inspired */
 
 @layer base {
   :root {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 95%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 90%;
 
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 90%;
 
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 90%;
 
-    --primary: 0 72% 51%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 74% 56%;
+    --primary-foreground: 0 0% 4%;
 
-    --secondary: 240 10% 15%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 55%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 280 65% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 43 74% 56%;
+    --accent-foreground: 0 0% 4%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 20%;
-    --input: 240 10% 15%;
-    --ring: 0 72% 51%;
+    --border: 0 0% 18%;
+    --input: 0 0% 12%;
+    --ring: 43 74% 56%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Custom cinema tokens */
-    --cinema-gold: 45 93% 58%;
-    --cinema-glow: 0 72% 51%;
-    --gradient-cinema: linear-gradient(135deg, hsl(0 72% 51%) 0%, hsl(280 65% 60%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(240 10% 4%) 0%, hsl(240 10% 8%) 100%);
-    --shadow-glow: 0 0 60px -15px hsl(0 72% 51% / 0.4);
-    --shadow-card: 0 25px 50px -12px hsl(0 0% 0% / 0.5);
+    /* Cinema tokens */
+    --cinema-gold: 43 74% 56%;
+    --cinema-silver: 0 0% 75%;
+    --cinema-warm: 30 20% 8%;
+    --film-grain: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 95%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 90%;
 
-    --card: 240 10% 8%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 90%;
 
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 90%;
 
-    --primary: 0 72% 51%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 43 74% 56%;
+    --primary-foreground: 0 0% 4%;
 
-    --secondary: 240 10% 15%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 240 10% 15%;
-    --muted-foreground: 240 5% 55%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 280 65% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 43 74% 56%;
+    --accent-foreground: 0 0% 4%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 20%;
-    --input: 240 10% 15%;
-    --ring: 0 72% 51%;
+    --border: 0 0% 18%;
+    --input: 0 0% 12%;
+    --ring: 43 74% 56%;
   }
 }
 
@@ -83,31 +81,53 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  /* Film grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: var(--film-grain);
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
   }
 }
 
 @layer utilities {
-  .gradient-cinema {
-    background: var(--gradient-cinema);
+  .text-gold {
+    color: hsl(var(--cinema-gold));
   }
   
-  .gradient-dark {
-    background: var(--gradient-dark);
+  .bg-cinema-warm {
+    background-color: hsl(var(--cinema-warm));
   }
   
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
+  .border-gold {
+    border-color: hsl(var(--cinema-gold));
+  }
+
+  /* Subtle hover effect */
+  .hover-lift {
+    transition: transform 0.2s ease;
   }
   
-  .shadow-card {
-    box-shadow: var(--shadow-card);
+  .hover-lift:hover {
+    transform: translateY(-2px);
   }
-  
-  .text-gradient {
-    background: var(--gradient-cinema);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+
+  /* Cinema button style */
+  .btn-cinema {
+    @apply px-6 py-3 border border-border bg-transparent text-foreground;
+    @apply hover:border-primary hover:text-primary transition-colors;
+    @apply font-medium tracking-wide;
+  }
+
+  .btn-cinema-primary {
+    @apply px-6 py-3 bg-primary text-primary-foreground;
+    @apply hover:bg-primary/90 transition-colors;
+    @apply font-medium tracking-wide;
   }
 }

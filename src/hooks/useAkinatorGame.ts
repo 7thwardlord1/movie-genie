@@ -1,7 +1,13 @@
 import { useState, useCallback } from 'react';
 import { GameState, MediaType, AnswerType, AkinatorQuestion, TMDBMovie, TMDBTVShow } from '@/types/tmdb';
 import { getMediaPool } from '@/lib/tmdb';
-import { getQuestions, getNextQuestion, filterCandidates, pickGuess, shuffleArray } from '@/lib/akinator-questions';
+import { getInitialQuestions, getNextQuestion, filterCandidates, pickGuess } from '@/lib/akinator-questions';
+
+// Tuning constants for better precision
+const MIN_CANDIDATES_TO_GUESS = 3; // Only guess when we're confident
+const MAX_QUESTIONS_BEFORE_GUESS = 25; // Ask more questions for precision
+const HIGH_CONFIDENCE_THRESHOLD = 2; // If only 2 candidates, we're very confident
+const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 8; // Don't guess too early
 
 const initialGameState: GameState = {
   mediaType: null,
@@ -26,18 +32,17 @@ export function useAkinatorGame() {
     
     try {
       const pool = await getMediaPool(mediaType);
-      const shuffledPool = shuffleArray(pool);
-      const gameQuestions = getQuestions(mediaType);
+      const gameQuestions = getInitialQuestions(mediaType);
       
       setQuestions(gameQuestions);
       
-      const firstQuestion = getNextQuestion(gameQuestions, [], shuffledPool);
+      const firstQuestion = getNextQuestion(gameQuestions, [], pool);
       setCurrentQuestion(firstQuestion);
       
       setGameState({
         ...initialGameState,
         mediaType,
-        candidates: shuffledPool,
+        candidates: pool,
       });
     } catch (error) {
       console.error('Error starting game:', error);
@@ -54,11 +59,14 @@ export function useAkinatorGame() {
       const newCandidates = filterCandidates(prev.candidates, currentQuestion, answer);
       const newQuestionsAsked = prev.questionsAsked + 1;
 
-      // Check if we should make a guess
+      // Improved guessing logic - be more patient
       const shouldGuess = 
-        newCandidates.length <= 5 || 
-        newQuestionsAsked >= 15 ||
-        (newQuestionsAsked >= 10 && newCandidates.length <= 10);
+        // Very confident: only 2 candidates left
+        newCandidates.length <= HIGH_CONFIDENCE_THRESHOLD ||
+        // Max questions reached
+        newQuestionsAsked >= MAX_QUESTIONS_BEFORE_GUESS ||
+        // Good confidence: few candidates after enough questions
+        (newQuestionsAsked >= MIN_QUESTIONS_BEFORE_EARLY_GUESS && newCandidates.length <= MIN_CANDIDATES_TO_GUESS);
 
       if (shouldGuess) {
         setIsGuessing(true);
@@ -112,8 +120,8 @@ export function useAkinatorGame() {
       setGameState(prev => {
         const newCandidates = prev.candidates.filter(c => c.id !== prev.currentGuess?.id);
         
-        // Check if we have more candidates
-        if (newCandidates.length === 0 || prev.questionsAsked >= 20) {
+        // Check if we have more candidates or reached question limit
+        if (newCandidates.length === 0 || prev.questionsAsked >= MAX_QUESTIONS_BEFORE_GUESS + 5) {
           return {
             ...prev,
             isFinished: true,
@@ -122,8 +130,8 @@ export function useAkinatorGame() {
           };
         }
 
-        // Try another guess or continue questions
-        if (newCandidates.length <= 3) {
+        // If still very few candidates, try another guess
+        if (newCandidates.length <= MIN_CANDIDATES_TO_GUESS) {
           const newGuess = pickGuess(newCandidates);
           return {
             ...prev,

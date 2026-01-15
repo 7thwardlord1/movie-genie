@@ -2016,37 +2016,83 @@ export function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+// Weighted-entropy helpers
+function safeLog10(x: number) {
+  if (x <= 0) return 0;
+  return Math.log10 ? Math.log10(x) : Math.log(x) / Math.LN10;
+}
+
+function getCandidateWeight(item: MediaItem): number {
+  // Formula: log10(popularity + 10) + (log10(vote_count + 1) * vote_average / 10)
+  const popularity = typeof item.popularity === 'number' ? item.popularity : 0;
+  const vote_count = typeof item.vote_count === 'number' ? item.vote_count : 0;
+  const vote_average = typeof item.vote_average === 'number' ? item.vote_average : 0;
+
+  const pScore = safeLog10(popularity + 10);
+  const vScore = safeLog10(vote_count + 1) * (vote_average / 10);
+
+  // Ensure non-negative and small epsilon to avoid zero-division
+  return Math.max(0, pScore + vScore) + 1e-6;
+}
+
 function scoreQuestion(question: AkinatorQuestion, candidates: MediaItem[], questionsAsked: number): number {
   if (candidates.length === 0) return 0;
-  
-  let yesCount = 0;
-  let noCount = 0;
-  
+
+  let yesWeight = 0;
+  let noWeight = 0;
+
   for (const candidate of candidates) {
-    if (question.filterFn(candidate, 'yes')) yesCount++;
-    if (question.filterFn(candidate, 'no')) noCount++;
+    const w = getCandidateWeight(candidate);
+    const matchesYes = question.filterFn(candidate, 'yes');
+    const matchesNo = question.filterFn(candidate, 'no');
+
+    if (matchesYes && !matchesNo) {
+      yesWeight += w;
+    } else if (matchesNo && !matchesYes) {
+      noWeight += w;
+    } else if (matchesYes && matchesNo) {
+      yesWeight += w * 0.5;
+      noWeight += w * 0.5;
+    }
   }
-  
-  const total = candidates.length;
-  const yesRatio = yesCount / total;
-  const noRatio = noCount / total;
-  
-  // Best score when 50/50 split
-  const balance = 1 - Math.abs(yesRatio - noRatio);
-  const filterPower = Math.min(yesRatio, noRatio) * 2;
-  
-  let score = balance * filterPower;
-  
-  // Penalize actor/director questions early in the game (before question 12)
-  if (questionsAsked < 12 && ['actor', 'director'].includes(question.category)) {
-    score *= 0.3;
+
+  const totalWeight = yesWeight + noWeight;
+  if (totalWeight <= 0) return 0;
+
+  const p = yesWeight / totalWeight; // probability mass for 'yes'
+
+  // Binary entropy (max 1 at p=0.5)
+  const ent = (p > 0 ? -p * Math.log2(p) : 0) + (1 - p > 0 ? -(1 - p) * Math.log2(1 - p) : 0);
+  const normalizedEntropy = ent; // already in [0..1]
+
+  // Filter power: how much mass would be removed by asking this question
+  const filterPower = Math.min(yesWeight, noWeight) / totalWeight * 2; // in [0..1]
+
+  let score = normalizedEntropy * filterPower;
+
+  // Dynamic penalties
+  // If too unbalanced (<5% mass one side) penalize
+  if (p < 0.05 || p > 0.95) {
+    score *= 0.5;
   }
-  
-  // Boost priority questions
+
+  // If candidate pool is large, penalize very specific categories including specific_franchise
+  if (candidates.length > 50 && ['actor', 'director', 'studio', 'specific_franchise'].includes(question.category)) {
+    score *= 0.15;
+  }
+
+  // Boosts for early game for structuring categories
+  if (questionsAsked < 5 && ['genre', 'language', 'tv'].includes(question.category)) {
+    score *= 1.5;
+  }
+
+  // Slight boost from question.priority to prefer curated important questions
   if (question.priority) {
     score += (question.priority / 100);
   }
-  
+
+  if (!isFinite(score) || score < 0) score = 0;
+
   return score;
 }
 
@@ -2079,41 +2125,45 @@ export function getNextQuestion(
   candidates: MediaItem[]
 ): AkinatorQuestion | null {
   const remainingQuestions = questions.filter(q => !askedQuestionIds.includes(q.id));
-  
+
   if (remainingQuestions.length === 0 || candidates.length <= 1) {
     return null;
   }
 
   const questionsAsked = askedQuestionIds.length;
-  
+
   const scoredQuestions = remainingQuestions.map(question => ({
     question,
     score: scoreQuestion(question, candidates, questionsAsked),
     priority: categoryPriority[question.category] || 5,
   }));
 
+  // Sort by score desc. If two scores are very close (<0.05), use categoryPriority
   scoredQuestions.sort((a, b) => {
-    // Primary: score
-    if (Math.abs(a.score - b.score) < 0.08) {
-      // Secondary: category priority (lower = earlier)
+    if (Math.abs(a.score - b.score) < 0.05) {
       return a.priority - b.priority;
     }
     return b.score - a.score;
   });
 
-  // Filter to only good questions (threshold 0.15 instead of 0.1)
-  const goodQuestions = scoredQuestions.filter(sq => sq.score > 0.15);
-  
-  if (goodQuestions.length === 0) {
-    // Fallback: pick best available
+  // If top scores are all extremely low, fall back to first by priority
+  const topScore = scoredQuestions[0]?.score ?? 0;
+  if (topScore <= 0) {
     return scoredQuestions[0]?.question || remainingQuestions[0];
   }
 
-  // Pick randomly from top 3 to add variety
-  const topQuestions = goodQuestions.slice(0, Math.min(3, goodQuestions.length));
-  const randomIndex = Math.floor(Math.random() * topQuestions.length);
-  
-  return topQuestions[randomIndex].question;
+  // Take top 3 candidates (or fewer) and pick one at random to avoid robot behavior
+  const topCount = Math.min(3, scoredQuestions.length);
+  const topSlice = scoredQuestions.slice(0, topCount);
+
+  // Small safeguard: prefer questions with significantly high score but still allow randomness
+  const bestScore = topSlice[0].score;
+  const finalPool = topSlice.filter(sq => (bestScore - sq.score) < 0.15);
+
+  const pickPool = finalPool.length ? finalPool : [topSlice[0]];
+  const chosen = pickPool[Math.floor(Math.random() * pickPool.length)];
+
+  return chosen.question;
 }
 
 export function filterCandidates(
@@ -2122,27 +2172,48 @@ export function filterCandidates(
   answer: AnswerType
 ): MediaItem[] {
   if (answer === 'unknown') return candidates;
-  
-  const filtered = candidates.filter(candidate => question.filterFn(candidate, answer));
-  
-  // Never eliminate ALL candidates
+
+  // Normal strict filtering for yes/no
+  let filtered = candidates.filter(candidate => question.filterFn(candidate, answer));
+
+  // Fuzzy handling for probably / probably_not
+  if (answer === 'probably' || answer === 'probably_not') {
+    // Be more tolerant: keep a larger slice if fuzzy
+    const minToKeep = Math.max(1, Math.floor(candidates.length * 0.5));
+    if (filtered.length < minToKeep) {
+      // Add back some of the eliminated candidates (prefer most popular ones)
+      const eliminated = candidates.filter(c => !filtered.includes(c));
+      eliminated.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
+      const toAdd = eliminated.slice(0, Math.min(eliminated.length, minToKeep - filtered.length));
+      filtered = [...filtered, ...toAdd];
+    }
+
+    // Rescue mechanism: if we removed a very popular candidate, reintroduce it
+    const totalPopularity = Math.max(1, candidates.reduce((s, c) => s + (c.popularity || 0), 0));
+    const eliminatedAfter = candidates.filter(c => !filtered.includes(c));
+    if (eliminatedAfter.length > 0) {
+      // Take the single most popular eliminated
+      eliminatedAfter.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+      const topEl = eliminatedAfter[0];
+      if ((topEl.popularity || 0) / totalPopularity > 0.10) {
+        filtered.push(topEl);
+      }
+    }
+  }
+
+  // Never eliminate everyone
   if (filtered.length === 0) {
     console.warn(`[Akinator] Filter "${question.id}" with answer "${answer}" would eliminate all ${candidates.length} candidates - keeping original pool`);
     return candidates;
   }
-  
-  // For "probably" / "probably_not", be more lenient
-  if (answer === 'probably' || answer === 'probably_not') {
-    const minToKeep = Math.max(1, Math.floor(candidates.length * 0.4));
-    if (filtered.length < minToKeep) {
-      const eliminated = candidates.filter(c => !filtered.includes(c));
-      const toAdd = shuffleArray(eliminated).slice(0, minToKeep - filtered.length);
-      return [...filtered, ...toAdd];
-    }
+
+  // Safety: if filtering removed almost everyone but left only tiny fraction, be conservative for fuzzy answers
+  if ((answer === 'probably' || answer === 'probably_not') && filtered.length < Math.max(1, Math.floor(candidates.length * 0.2))) {
+    return candidates;
   }
-  
+
   console.log(`[Akinator] Question "${question.id}" (${answer}): ${candidates.length} → ${filtered.length} candidates`);
-  
   return filtered;
 }
 

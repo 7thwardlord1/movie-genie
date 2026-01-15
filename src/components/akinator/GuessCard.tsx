@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { TMDBMovie, TMDBTVShow } from '@/types/tmdb';
+import { EnrichedMedia } from '@/types/tmdb';
 import { getImageUrl, getTitle, getReleaseYear, isMovie } from '@/lib/tmdb';
 import { Star, Check, X, HelpCircle } from 'lucide-react';
 
 interface GuessCardProps {
-  guess: TMDBMovie | TMDBTVShow;
+  guess: EnrichedMedia;
   questionsAsked: number;
   onConfirm: (isCorrect: boolean) => void;
 }

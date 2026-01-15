@@ -1,7 +1,8 @@
-import { AkinatorQuestion, AnswerType, TMDBMovie, TMDBTVShow, MediaType } from '@/types/tmdb';
-import { isMovie, getReleaseYear } from './tmdb';
+import { AkinatorQuestion, AnswerType, MediaType, EnrichedMedia } from '@/types/tmdb';
+import { isMovie, getReleaseYear, hasActor, hasDirector, hasProductionCompany, hasNetwork, hasKeywordByName } from './tmdb';
+import { FAMOUS_ACTORS, FAMOUS_DIRECTORS, PRODUCTION_COMPANIES, TV_NETWORKS } from '@/types/tmdb';
 
-type MediaItem = TMDBMovie | TMDBTVShow;
+type MediaItem = EnrichedMedia;
 
 // ============================================================================
 // KEYWORD DATABASES
@@ -544,11 +545,18 @@ const DISNEY_PLUS_KEYWORDS = [
 // ============================================================================
 
 function matchesKeywords(item: MediaItem, keywords: string[]): boolean {
-  const title = (isMovie(item) ? item.title : item.name).toLowerCase();
-  const originalTitle = (isMovie(item) ? item.original_title : item.original_name).toLowerCase();
-  const overview = (item.overview || '').toLowerCase();
-  const text = `${title} ${originalTitle} ${overview}`;
-  return keywords.some(keyword => text.includes(keyword.toLowerCase()));
+  const title = isMovie(item) ? item.title : item.name;
+  const originalTitle = isMovie(item) ? item.original_title : item.original_name;
+  const overview = item.overview || '';
+  const text = `${title} ${originalTitle} ${overview}`.toLowerCase();
+  
+  // Check text-based keywords
+  const textMatch = keywords.some(keyword => text.includes(keyword.toLowerCase()));
+  
+  // Also check TMDB keywords for better accuracy
+  const tmdbMatch = hasKeywordByName(item, keywords);
+  
+  return textMatch || tmdbMatch;
 }
 
 function hasGenre(item: MediaItem, genreIds: number[]): boolean {
@@ -869,7 +877,7 @@ export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
       id: 'adult_content',
       text: 'Est-ce réservé à un public adulte (violent, mature) ?',
       category: 'theme',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27, 53, 80]) || (isMovie(item) && item.adult), answer)
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27, 53, 80]) || (isMovie(item) && (item as any).adult), answer)
     },
 
     // ========== MAIN GENRES (18) ==========

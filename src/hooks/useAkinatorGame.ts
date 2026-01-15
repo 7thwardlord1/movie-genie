@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
-import { GameState, MediaType, AnswerType, AkinatorQuestion, TMDBMovie, TMDBTVShow } from '@/types/tmdb';
+import { GameState, MediaType, AnswerType, AkinatorQuestion, EnrichedMedia } from '@/types/tmdb';
 import { getMediaPool } from '@/lib/tmdb';
 import { getInitialQuestions, getNextQuestion, filterCandidates, pickGuess } from '@/lib/akinator-questions';
 
 // Tuning constants for better precision
-const MIN_CANDIDATES_TO_GUESS = 3; // Only guess when we're confident
-const MAX_QUESTIONS_BEFORE_GUESS = 30; // Ask more questions for precision
-const HIGH_CONFIDENCE_THRESHOLD = 2; // If only 2 candidates, we're very confident
-const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 10; // Don't guess too early
+const MIN_CANDIDATES_TO_GUESS = 2;
+const MAX_QUESTIONS_BEFORE_GUESS = 40;
+const HIGH_CONFIDENCE_THRESHOLD = 2;
+const MIN_QUESTIONS_BEFORE_EARLY_GUESS = 15;
 
 const initialGameState: GameState = {
   mediaType: null,
@@ -26,12 +26,17 @@ export function useAkinatorGame() {
   const [currentQuestion, setCurrentQuestion] = useState<AkinatorQuestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGuessing, setIsGuessing] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState<{ step: string; progress: number } | null>(null);
 
   const startGame = useCallback(async (mediaType: MediaType) => {
     setIsLoading(true);
+    setLoadingProgress({ step: 'Initialisation...', progress: 0 });
     
     try {
-      const pool = await getMediaPool(mediaType);
+      const pool = await getMediaPool(mediaType, (step, progress) => {
+        setLoadingProgress({ step, progress });
+      });
+      
       const gameQuestions = getInitialQuestions(mediaType);
       
       setQuestions(gameQuestions);
@@ -48,6 +53,7 @@ export function useAkinatorGame() {
       console.error('Error starting game:', error);
     } finally {
       setIsLoading(false);
+      setLoadingProgress(null);
     }
   }, []);
 
@@ -59,13 +65,9 @@ export function useAkinatorGame() {
       const newCandidates = filterCandidates(prev.candidates, currentQuestion, answer);
       const newQuestionsAsked = prev.questionsAsked + 1;
 
-      // Improved guessing logic - be more patient
       const shouldGuess = 
-        // Very confident: only 2 candidates left
         newCandidates.length <= HIGH_CONFIDENCE_THRESHOLD ||
-        // Max questions reached
         newQuestionsAsked >= MAX_QUESTIONS_BEFORE_GUESS ||
-        // Good confidence: few candidates after enough questions
         (newQuestionsAsked >= MIN_QUESTIONS_BEFORE_EARLY_GUESS && newCandidates.length <= MIN_CANDIDATES_TO_GUESS);
 
       if (shouldGuess) {
@@ -80,12 +82,10 @@ export function useAkinatorGame() {
         };
       }
 
-      // Get next question
       const askedIds = Object.keys(newAnswers);
       const nextQuestion = getNextQuestion(questions, askedIds, newCandidates);
       
       if (!nextQuestion) {
-        // No more questions, make a guess
         setIsGuessing(true);
         const guess = pickGuess(newCandidates);
         return {
@@ -116,11 +116,9 @@ export function useAkinatorGame() {
         hasWon: true,
       }));
     } else {
-      // Remove the wrong guess and continue
       setGameState(prev => {
         const newCandidates = prev.candidates.filter(c => c.id !== prev.currentGuess?.id);
         
-        // Check if we have more candidates or reached question limit
         if (newCandidates.length === 0 || prev.questionsAsked >= MAX_QUESTIONS_BEFORE_GUESS + 5) {
           return {
             ...prev,
@@ -130,7 +128,6 @@ export function useAkinatorGame() {
           };
         }
 
-        // If still very few candidates, try another guess
         if (newCandidates.length <= MIN_CANDIDATES_TO_GUESS) {
           const newGuess = pickGuess(newCandidates);
           return {
@@ -140,7 +137,6 @@ export function useAkinatorGame() {
           };
         }
 
-        // Continue with questions
         const askedIds = Object.keys(prev.answers);
         const nextQuestion = getNextQuestion(questions, askedIds, newCandidates);
         
@@ -171,6 +167,7 @@ export function useAkinatorGame() {
     setCurrentQuestion(null);
     setIsGuessing(false);
     setIsLoading(false);
+    setLoadingProgress(null);
   }, []);
 
   return {
@@ -178,6 +175,7 @@ export function useAkinatorGame() {
     currentQuestion,
     isLoading,
     isGuessing,
+    loadingProgress,
     startGame,
     answerQuestion,
     confirmGuess,

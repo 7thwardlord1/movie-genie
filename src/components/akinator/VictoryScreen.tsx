@@ -1,13 +1,13 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { TMDBMovie, TMDBTVShow } from '@/types/tmdb';
+import { EnrichedMedia } from '@/types/tmdb';
 import { getImageUrl, getTitle, getReleaseYear, isMovie } from '@/lib/tmdb';
 import { Trophy, RotateCcw, Star, PartyPopper, Frown } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface VictoryScreenProps {
   hasWon: boolean;
-  guess: TMDBMovie | TMDBTVShow | null;
+  guess: EnrichedMedia | null;
   questionsAsked: number;
   onPlayAgain: () => void;
 }

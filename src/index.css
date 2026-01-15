@@ -109,6 +109,39 @@
     border-color: hsl(var(--cinema-gold));
   }
 
+  /* Gradient cinema - or chaud */
+  .gradient-cinema {
+    background: linear-gradient(135deg, hsl(38 70% 45%) 0%, hsl(43 74% 56%) 100%);
+  }
+
+  /* Texte gradient dore */
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(43 74% 56%) 0%, hsl(48 80% 65%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Ombre doree subtile */
+  .shadow-glow {
+    box-shadow: 0 0 30px -8px hsl(43 74% 56% / 0.4);
+  }
+
+  /* Ombre carte */
+  .shadow-card {
+    box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Animation pulse douce */
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
   /* Subtle hover effect */
   .hover-lift {
     transition: transform 0.2s ease;

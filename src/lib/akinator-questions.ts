@@ -1,548 +1,16 @@
-import { AkinatorQuestion, AnswerType, MediaType, EnrichedMedia } from '@/types/tmdb';
-import { isMovie, getReleaseYear, hasActor, hasDirector, hasProductionCompany, hasNetwork, hasKeywordByName } from './tmdb';
+import { AkinatorQuestion, AnswerType, MediaType, EnrichedMedia, TMDBMovieEnriched, TMDBTVEnriched } from '@/types/tmdb';
+import { isMovie, isTVShow, getReleaseYear, hasActor, hasDirector, hasProductionCompany, hasNetwork, hasKeywordByName } from './tmdb';
 import { FAMOUS_ACTORS, FAMOUS_DIRECTORS, PRODUCTION_COMPANIES, TV_NETWORKS } from '@/types/tmdb';
 
 type MediaItem = EnrichedMedia;
 
 // ============================================================================
-// KEYWORD DATABASES
-// ============================================================================
-
-const SUPERHERO_KEYWORDS = [
-  'marvel', 'avengers', 'spider-man', 'spiderman', 'batman', 'superman', 'dc',
-  'iron man', 'captain america', 'thor', 'hulk', 'x-men', 'xmen', 'deadpool',
-  'wonder woman', 'justice league', 'aquaman', 'flash', 'black panther',
-  'guardians of the galaxy', 'ant-man', 'doctor strange', 'black widow',
-  'shazam', 'joker', 'suicide squad', 'watchmen', 'daredevil', 'punisher',
-  'fantastic four', 'venom', 'morbius', 'eternals', 'moon knight', 'she-hulk',
-  'ms marvel', 'loki', 'hawkeye', 'falcon', 'winter soldier', 'wanda', 'vision'
-];
-
-const DISNEY_PIXAR_KEYWORDS = [
-  'disney', 'pixar', 'frozen', 'toy story', 'finding nemo', 'finding dory',
-  'monsters inc', 'monsters university', 'incredibles', 'up', 'inside out',
-  'coco', 'soul', 'luca', 'turning red', 'encanto', 'ratatouille', 'wall-e',
-  'brave', 'cars', 'tangled', 'moana', 'zootopia', 'big hero', 'wreck-it ralph',
-  'ralph breaks', 'princess', 'lion king', 'little mermaid', 'beauty and the beast',
-  'aladdin', 'mulan', 'pocahontas', 'hercules', 'tarzan', 'lilo', 'stitch',
-  'bolt', 'onward', 'elemental', 'lightyear', 'strange world'
-];
-
-const GHIBLI_KEYWORDS = [
-  'ghibli', 'miyazaki', 'totoro', 'spirited away', 'howl', 'mononoke', 'kiki',
-  'ponyo', 'arrietty', 'wind rises', 'marnie', 'nausicaa', 'laputa', 'castle in the sky',
-  'porco rosso', 'whisper of the heart', 'grave of the fireflies', 'pom poko',
-  'tale of princess kaguya', 'when marnie was there', 'from up on poppy hill'
-];
-
-const A24_KEYWORDS = [
-  'a24', 'hereditary', 'midsommar', 'uncut gems', 'moonlight', 'lady bird',
-  'everything everywhere', 'ex machina', 'the witch', 'lighthouse', 'green knight',
-  'room', 'eighth grade', 'mid90s', 'good time', 'killing of a sacred deer',
-  'lobster', 'florida project', 'spring breakers', 'under the skin', 'enemy',
-  'it comes at night', 'first reformed', 'minari', 'past lives', 'talk to me',
-  'bodies bodies bodies', 'x', 'pearl', 'men', 'marcel the shell', 'aftersun'
-];
-
-const CHRISTMAS_KEYWORDS = [
-  'christmas', 'noel', 'noël', 'santa', 'holiday', 'xmas', 'miracle on',
-  'home alone', 'elf', 'grinch', 'nightmare before christmas', 'polar express',
-  'die hard', 'love actually', 'carol', 'scrooge', 'snow', 'winter', 'rudolph',
-  'nutcracker', 'klaus', 'jingle', 'frosty', 'white christmas'
-];
-
-const ZOMBIE_KEYWORDS = [
-  'zombie', 'zombies', 'undead', 'walking dead', 'dead', 'outbreak', 'infected',
-  'apocalypse', 'world war z', 'train to busan', 'resident evil', '28 days',
-  '28 weeks', 'dawn of the dead', 'shaun of the dead', 'warm bodies', 'zombieland',
-  'i am legend', 'army of the dead', 'all of us are dead', 'kingdom', 'alive',
-  'cargo', 'peninsula', 'girl with all the gifts', 'night of the living'
-];
-
-const VAMPIRE_KEYWORDS = [
-  'vampire', 'vampires', 'dracula', 'nosferatu', 'blood', 'twilight', 'blade',
-  'underworld', 'interview with the vampire', 'true blood', 'what we do in the shadows',
-  'buffy', 'from dusk till dawn', 'let the right one in', 'only lovers left alive',
-  'fright night', '30 days of night', 'daybreakers', 'hotel transylvania', 'morbius',
-  'van helsing', 'castlevania', 'first kill', 'abraham lincoln vampire'
-];
-
-const SPACE_KEYWORDS = [
-  'space', 'star wars', 'star trek', 'galaxy', 'mars', 'moon', 'astronaut',
-  'alien', 'aliens', 'interstellar', 'gravity', 'martian', 'arrival', 'cosmos',
-  'planet', 'nasa', 'rocket', 'spaceship', 'starship', 'universe', 'solar',
-  'asteroid', 'comet', 'orbit', 'apollo', 'dune', 'foundation', 'expanse',
-  'battlestar', 'firefly', 'mandalorian', 'guardians', 'lightyear', 'ad astra',
-  'first man', 'europa report', 'passengers', 'life', 'event horizon', 'sunshine',
-  'silent running', '2001', 'prometheus', 'covenant'
-];
-
-const UNDERWATER_KEYWORDS = [
-  'underwater', 'ocean', 'sea', 'submarine', 'shark', 'jaws', 'deep', 'dive',
-  'aquatic', 'mermaid', 'atlantis', 'abyss', 'titanic', 'meg', 'megalodon',
-  'finding nemo', 'finding dory', 'little mermaid', 'aquaman', 'the deep',
-  'leviathan', 'sphere', 'pacific rim', 'hunt for red october',
-  'das boot', 'crimson tide', 'u-571', 'greyhound', 'poseidon'
-];
-
-const DINOSAUR_KEYWORDS = [
-  'dinosaur', 'dinosaurs', 'jurassic', 'rex', 'raptor', 'prehistoric', 'dino',
-  'land before time', 'good dinosaur', 'walking with dinosaurs', 'primal',
-  'king kong', 'lost world', 'dinotopia'
-];
-
-const PRISON_KEYWORDS = [
-  'prison', 'jail', 'inmate', 'escape', 'shawshank', 'green mile', 'convict',
-  'cell', 'alcatraz', 'prisoner', 'penitentiary', 'warden', 'sentenced',
-  'death row', 'lockup', 'correctional', 'behind bars', 'el chapo', 'narcos',
-  'orange is the new black', 'oz', 'prison break', 'escape from', 'con air',
-  'papillon', 'midnight express', 'cool hand luke', 'american history x'
-];
-
-const HEIST_KEYWORDS = [
-  'heist', 'robbery', 'rob', 'theft', 'steal', 'bank', 'casino', 'vault',
-  'safe', 'caper', 'con', 'hustle', 'score', 'payday',
-  "ocean's", 'oceans', 'italian job', 'heat', 'inside man', 'money heist',
-  'casa de papel', 'now you see me', 'baby driver', 'logan lucky', 'the town',
-  'point break', 'fast five', 'army of thieves', 'lupin', 'red notice',
-  'thomas crown', 'snatch', 'lock stock', 'reservoir dogs', 'american animals'
-];
-
-const MARTIAL_ARTS_KEYWORDS = [
-  'martial arts', 'kung fu', 'karate', 'judo', 'taekwondo', 'mma', 'fighting',
-  'fighter', 'bruce lee', 'jackie chan', 'jet li', 'tony jaa', 'ip man',
-  'crouching tiger', 'hidden dragon', 'kill bill', 'matrix', 'raid', 'ong-bak',
-  'rush hour', 'shanghai', 'drunken master', 'fist of fury', 'enter the dragon',
-  'warrior', 'bloodsport', 'kickboxer', 'mortal kombat', 'tekken', 'cobra kai',
-  'karate kid', 'ninja', 'samurai', 'shinobi', 'shang-chi', 'john wick',
-  'atomic blonde', 'nobody', 'oldboy', 'the night comes for us'
-];
-
-const SPORT_KEYWORDS = [
-  'sport', 'football', 'soccer', 'basketball', 'baseball', 'hockey', 'tennis',
-  'golf', 'boxing', 'wrestling', 'rugby', 'cricket', 'olympics', 'athlete',
-  'coach', 'team', 'championship', 'match', 'player', 'draft',
-  'rocky', 'creed', 'remember the titans', 'friday night lights', 'moneyball',
-  'blind side', 'hoosiers', 'rudy', 'mighty ducks', 'cool runnings', 'talladega',
-  'rush', 'ford v ferrari', 'days of thunder', 'senna', 'ted lasso', 'drive to survive',
-  'last dance', 'formula 1', 'f1', 'nba', 'nfl', 'mlb', 'fifa', 'world cup',
-  'wimbledon', 'surf', 'skateboard', 'snowboard', 'ski'
-];
-
-const DANCE_KEYWORDS = [
-  'dance', 'dancing', 'dancer', 'ballet', 'ballroom', 'step up', 'footloose',
-  'dirty dancing', 'flashdance', 'black swan', 'billy elliot', 'chicago',
-  'cabaret', 'moulin rouge', 'la la land', 'greatest showman', 'fame',
-  'center stage', 'honey', 'stomp the yard', 'you got served', 'save the last dance',
-  'strictly', 'dancing with', 'dance academy', 'bunheads', 'flesh and bone'
-];
-
-const ROAD_MOVIE_KEYWORDS = [
-  'road', 'trip', 'journey', 'highway', 'travel', 'cross country', 'driving',
-  'thelma', 'louise', 'easy rider', 'fear and loathing', 'little miss sunshine',
-  'into the wild', 'green book', 'rain man', 'dumb and dumber', 'sideways',
-  'nebraska', 'the way', 'wild', 'nomadland', 'y tu mama tambien', 'motorcycle diaries',
-  'paris texas', 'mad max', 'fury road', 'the road', 'zombieland', 'vacation'
-];
-
-const POST_APOCALYPTIC_KEYWORDS = [
-  'apocalypse', 'apocalyptic', 'post-apocalyptic', 'end of the world', 'wasteland',
-  'survivor', 'fallout', 'mad max', 'fury road', 'the road', 'book of eli',
-  'i am legend', 'zombieland', 'waterworld', 'quiet place', 'bird box',
-  'the 100', 'walking dead', 'last of us', 'station eleven', 'jericho',
-  'snowpiercer', 'into the badlands', 'defiance', 'revolution', 'dawn of the dead',
-  'children of men', 'oblivion', 'edge of tomorrow', '12 monkeys', 'terminator',
-  'matrix', 'hunger games', 'maze runner', 'divergent', 'planet of the apes'
-];
-
-const ROBOT_AI_KEYWORDS = [
-  'robot', 'robots', 'ai', 'artificial intelligence', 'android', 'cyborg', 'machine',
-  'ex machina', 'terminator', 'blade runner', 'i robot', 'wall-e', 'big hero',
-  'transformers', 'iron giant', 'short circuit', 'bicentennial man', 'a.i.',
-  'her', 'westworld', 'humans', 'battlestar', 'real steel', 'chappie', 'finch',
-  'archive', 'tau', 'upgrade', 'alita', 'ghost in the shell',
-  'automata', 'transcendence', 'black mirror', 'love death robots', 'next gen',
-  'mitchells vs the machines'
-];
-
-const TIME_TRAVEL_KEYWORDS = [
-  'time travel', 'time machine', 'back to the future', 'looper', 'terminator',
-  '12 monkeys', 'primer', 'predestination', 'interstellar', 'tenet', 'arrival',
-  'about time', 'edge of tomorrow', 'groundhog day', 'palm springs', 'hot tub',
-  'bill and ted', 'doctor who', 'dark', 'loki', 'umbrella academy', 'travelers',
-  'timeless', 'outlander', 'quantum leap', 'flashpoint',
-  'butterfly effect', 'midnight in paris', 'timeline', 'source code', 'deja vu'
-];
-
-const TRUE_STORY_KEYWORDS = [
-  'true story', 'based on', 'inspired by', 'real', 'biopic', 'biography',
-  'historical', 'true events', 'dramatization', 'memoir', 'adapted from',
-  'bohemian rhapsody', 'social network', 'wolf of wall street', 'schindler',
-  'imitation game', 'theory of everything', 'hidden figures', 'spotlight',
-  'the big short', 'catch me if you can', 'erin brockovich', 'lincoln',
-  '12 years a slave', 'selma', 'hacksaw ridge', 'darkest hour', 'the favourite'
-];
-
-const BOOK_ADAPTATION_KEYWORDS = [
-  'adaptation', 'novel', 'book', 'stephen king', 'j.k. rowling', 'tolkien',
-  'harry potter', 'lord of the rings', 'hobbit', 'game of thrones', 'hunger games',
-  'twilight', 'maze runner', 'divergent', 'dune', 'the shining', 'it',
-  'jurassic', 'bourne', 'da vinci code', 'gone girl', 'girl with the dragon',
-  'ready player', 'percy jackson', 'narnia', 'chronicles of narnia',
-  'eragon', 'golden compass', 'mortal instruments', 'witcher', 'foundation',
-  "handmaid's tale", 'outlander', 'big little lies', 'sharp objects'
-];
-
-const SLASHER_KEYWORDS = [
-  'slasher', 'scream', 'halloween', 'friday the 13th', 'nightmare on elm street',
-  'texas chainsaw', "child's play", 'chucky', 'i know what you did', 'urban legend',
-  'final destination', 'saw', 'hostel', 'the purge', "you're next", 'hush',
-  'happy death day', 'freaky', 'fear street', 'black christmas', 'prom night',
-  'terror train', 'my bloody valentine', 'candyman', 'wrong turn', 'the strangers'
-];
-
-const PSYCHOLOGICAL_HORROR_KEYWORDS = [
-  'psychological', 'suspense', 'mind', 'paranoid', 'disturbing',
-  'hereditary', 'midsommar', 'the witch', 'it follows', 'get out', 'us',
-  'babadook', 'lighthouse', 'black swan', 'shutter island', 'silence of the lambs',
-  'psycho', "rosemary's baby", 'the shining', 'misery', 'gone girl', 'se7en',
-  'zodiac', 'prisoners', 'nightcrawler', 'enemy', 'mulholland drive', 'mother!',
-  'the killing of a sacred deer', 'suspiria', 'talk to me', 'pearl', 'smile'
-];
-
-const ROM_COM_KEYWORDS = [
-  'romantic comedy', 'rom-com', 'wedding', 'marry', 'date', 'dating',
-  'boyfriend', 'girlfriend', 'when harry met sally', "you've got mail",
-  'notting hill', 'bridget jones', 'how to lose a guy', '10 things i hate',
-  'pretty woman', 'sleepless in seattle', 'the proposal', 'crazy rich asians',
-  'to all the boys', 'set it up', 'always be my maybe', 'plus one', 'long shot',
-  'palm springs', 'ticket to paradise', 'shotgun wedding', 'no hard feelings',
-  'anyone but you', 'emily in paris', 'sex and the city', 'friends'
-];
-
-const DARK_COMEDY_KEYWORDS = [
-  'dark comedy', 'black comedy', 'satire', 'sardonic', 'ironic', 'cynical',
-  'fargo', 'burn after reading', 'in bruges', 'seven psychopaths', 'big lebowski',
-  'dr. strangelove', 'american psycho', 'fight club', 'thank you for smoking',
-  'jojo rabbit', 'the death of stalin', 'four lions', 'vice', "don't look up",
-  'the menu', 'triangle of sadness', 'parasite', 'sorry to bother you',
-  'get out', 'ready or not', 'knives out', 'glass onion', 'beef', 'barry',
-  'succession', 'veep', 'arrested development', 'always sunny', 'fleabag'
-];
-
-const POLITICAL_THRILLER_KEYWORDS = [
-  'political', 'government', 'president', 'senator', 'congress', 'election',
-  'conspiracy', 'spy', 'cia', 'fbi', 'nsa', 'intelligence', 'corruption',
-  "all the president's men", 'the post', 'frost nixon', 'the ides of march',
-  'primary colors', 'wag the dog', 'manchurian candidate', 'seven days in may',
-  'state of play', 'no way out', 'clear and present danger', 'patriot games',
-  'jack ryan', 'homeland', 'designated survivor', 'house of cards', 'scandal',
-  'the west wing', 'madam secretary', 'the diplomat', 'slow horses'
-];
-
-const DISASTER_KEYWORDS = [
-  'disaster', 'catastrophe', 'earthquake', 'volcano', 'tsunami', 'hurricane',
-  'tornado', 'flood', 'fire', 'explosion', 'meteor', 'asteroid', 'impact',
-  'the day after tomorrow', 'independence day', 'armageddon', 'deep impact',
-  '2012', 'san andreas', 'twister', 'into the storm', 'geostorm', 'greenland',
-  'moonfall', "don't look up", 'this is the end', 'seeking a friend',
-  'poseidon', 'titanic', "dante's peak", 'the core', 'knowing'
-];
-
-const NETFLIX_KEYWORDS = [
-  'netflix', 'stranger things', 'squid game', 'money heist', 'casa de papel',
-  'bridgerton', 'the crown', 'ozark', 'narcos', 'dark', 'lupin', '3 body problem',
-  'wednesday', 'dahmer', "queen's gambit", 'witcher', 'umbrella academy',
-  'cobra kai', 'you', 'emily in paris', 'outer banks', 'ginny & georgia',
-  'never have i ever', 'heartstopper', 'sex education', 'the society',
-  'all of us are dead', 'alice in borderland', 'black mirror', 'mindhunter'
-];
-
-const HBO_KEYWORDS = [
-  'hbo', 'game of thrones', 'house of the dragon', 'the last of us', 'succession',
-  'euphoria', 'white lotus', 'barry', 'true detective', 'the wire', 'sopranos',
-  'westworld', 'chernobyl', 'band of brothers', 'the pacific', 'rome',
-  'deadwood', 'boardwalk empire', 'veep', 'silicon valley', 'curb your enthusiasm',
-  'entourage', 'sex and the city', 'and just like that', 'hacks', 'winning time',
-  'the gilded age', 'perry mason', 'mare of easttown', 'the undoing', 'sharp objects',
-  'big little lies', 'lovecraft country', 'watchmen', 'the outsider'
-];
-
-const AMAZON_KEYWORDS = [
-  'amazon', 'prime video', 'the boys', 'invincible', 'the marvelous mrs. maisel',
-  'fleabag', 'jack ryan', 'reacher', 'the expanse', 'wheel of time', 'lord of the rings',
-  'rings of power', 'the peripheral', 'upload', 'undone', 'tales from the loop',
-  'goliath', 'bosch', 'hunters', 'homecoming', 'hanna', 'patriot', 'sneaky pete',
-  'transparent', 'good omens', 'the underground railroad', 'them', 'outer range'
-];
-
-const ANIME_KEYWORDS = [
-  'anime', 'manga', 'naruto', 'one piece', 'attack on titan', 'demon slayer',
-  'my hero academia', 'dragon ball', 'death note', 'fullmetal alchemist',
-  'jujutsu kaisen', 'spy x family', 'chainsaw man', 'tokyo ghoul', 'hunter x hunter',
-  'bleach', 'one punch man', 'mob psycho', 'cowboy bebop', 'evangelion',
-  'sword art online', 'steins;gate', 'code geass', 'tokyo revengers', 'haikyuu',
-  'your name', 'weathering with you', 'akira', 'perfect blue', 'paprika',
-  'ghost in the shell', 'studio ghibli', 'ghibli', 'crunchyroll', 'funimation'
-];
-
-const SITCOM_KEYWORDS = [
-  'sitcom', 'friends', 'the office', 'parks and recreation', 'brooklyn nine-nine',
-  'how i met your mother', 'big bang theory', 'modern family', "schitt's creek",
-  'ted lasso', 'abbott elementary', 'young sheldon', 'superstore', 'the good place',
-  'new girl', 'community', 'arrested development', 'scrubs', 'malcolm in the middle',
-  'everybody loves raymond', 'seinfeld', 'frasier', 'cheers', 'will & grace',
-  'mom', 'mike & molly', 'two and a half men', 'the goldbergs', 'fresh off the boat',
-  'blackish', 'grown-ish', 'ghosts', 'only murders in the building'
-];
-
-const MEDICAL_KEYWORDS = [
-  'medical', 'hospital', 'doctor', 'nurse', 'surgery', 'patient', 'er', 'emergency',
-  "grey's anatomy", 'house', 'the good doctor', 'chicago med', 'new amsterdam',
-  'the resident', 'scrubs', 'nip/tuck', 'royal pains', 'doogie howser',
-  'nurse jackie', 'the knick', 'mercy street', 'call the midwife', 'transplant',
-  'monday mornings', 'code black'
-];
-
-const PROCEDURAL_KEYWORDS = [
-  'procedural', 'detective', 'investigation', 'crime', 'forensic', 'fbi',
-  'csi', 'ncis', 'law & order', 'criminal minds', 'bones', 'castle', 'the mentalist',
-  'elementary', 'sherlock', 'luther', 'true detective', 'mindhunter', 'hannibal',
-  'dexter', 'the blacklist', 'the following', 'prodigal son', 'clarice',
-  'fbi: most wanted', 'fbi: international', 'chicago pd', 'blue bloods',
-  'swat', 'seal team', 'the rookie', 'station 19', 'nypd blue', 'cold case'
-];
-
-const EPIC_FANTASY_KEYWORDS = [
-  'fantasy', 'epic', 'dragon', 'magic', 'kingdom', 'sword', 'quest', 'prophecy',
-  'game of thrones', 'house of the dragon', 'lord of the rings', 'rings of power',
-  'the witcher', 'wheel of time', 'shadow and bone', 'the shannara chronicles',
-  'legend of the seeker', 'merlin', 'once upon a time', 'outlander', 'vikings',
-  'the last kingdom', 'britannia', 'cursed', 'carnival row', 'his dark materials',
-  'the dark crystal', 'willow', 'dungeons & dragons', 'eragon', 'narnia'
-];
-
-const FRANCHISE_KEYWORDS = [
-  '2', '3', '4', '5', 'ii', 'iii', 'iv', 'v', 'part', 'chapter', 'vol', 'episode',
-  'return', 'revenge', 'rises', 'reloaded', 'awakens', 'resurrection', 'sequel',
-  'remake', 'reboot', 'origins', 'legacy', 'genesis', 'chronicles'
-];
-
-// ============================================================================
-// NEW KEYWORD DATABASES FOR DIRECTORS, ACTORS, FRANCHISES, LOCATIONS
-// ============================================================================
-
-const NOLAN_KEYWORDS = [
-  'nolan', 'inception', 'interstellar', 'dark knight', 'tenet', 'dunkirk', 
-  'memento', 'prestige', 'oppenheimer', 'insomnia', 'following', 'batman begins'
-];
-
-const TARANTINO_KEYWORDS = [
-  'tarantino', 'pulp fiction', 'kill bill', 'inglourious basterds', 'django unchained',
-  'reservoir dogs', 'hateful eight', 'once upon a time in hollywood', 'jackie brown',
-  'death proof', 'grindhouse'
-];
-
-const SPIELBERG_KEYWORDS = [
-  'spielberg', 'jurassic', 'schindler', 'saving private ryan', 'e.t.', 'jaws',
-  'indiana jones', 'ready player', 'lincoln', 'bridge of spies', 'the post',
-  'west side story', 'minority report', 'catch me if you can', 'war horse'
-];
-
-const SCORSESE_KEYWORDS = [
-  'scorsese', 'goodfellas', 'casino', 'taxi driver', 'raging bull', 'wolf of wall street',
-  'the departed', 'gangs of new york', 'the irishman', 'shutter island', 'killers of the flower moon',
-  'cape fear', 'aviator', 'silence', 'hugo'
-];
-
-const VILLENEUVE_KEYWORDS = [
-  'villeneuve', 'dune', 'blade runner 2049', 'arrival', 'sicario', 'prisoners',
-  'enemy', 'incendies', 'polytechnique'
-];
-
-const RIDLEY_SCOTT_KEYWORDS = [
-  'ridley scott', 'gladiator', 'alien', 'blade runner', 'martian', 'prometheus',
-  'covenant', 'kingdom of heaven', 'black hawk down', 'american gangster',
-  'thelma & louise', 'robin hood', 'napoleon', 'house of gucci', 'the last duel'
-];
-
-const JAMES_CAMERON_KEYWORDS = [
-  'james cameron', 'avatar', 'titanic', 'terminator', 'aliens', 'true lies',
-  'the abyss', 'piranha ii', 'way of water', 't2', 'judgment day'
-];
-
-const WES_ANDERSON_KEYWORDS = [
-  'wes anderson', 'grand budapest hotel', 'moonrise kingdom', 'fantastic mr. fox',
-  'isle of dogs', 'french dispatch', 'royal tenenbaums', 'rushmore', 'darjeeling',
-  'life aquatic', 'asteroid city', 'bottle rocket'
-];
-
-const DICAPRIO_KEYWORDS = [
-  'dicaprio', 'leonardo', 'titanic', 'inception', 'wolf of wall street', 'revenant',
-  'shutter island', 'gatsby', 'django', 'departed', 'aviator', 'blood diamond',
-  'killers of the flower moon', "don't look up", 'once upon a time in hollywood'
-];
-
-const TOM_HANKS_KEYWORDS = [
-  'tom hanks', 'forrest gump', 'cast away', 'saving private ryan', 'green mile',
-  'philadelphia', 'big', 'toy story', 'captain phillips', 'sully', 'apollo 13',
-  'road to perdition', 'bridge of spies', 'the post', 'finch', 'a man called otto',
-  'da vinci code', 'inferno', 'news of the world'
-];
-
-const KEANU_REEVES_KEYWORDS = [
-  'keanu reeves', 'john wick', 'matrix', 'speed', 'point break', 'bill and ted',
-  'constantine', 'knock knock', 'man of tai chi', 'the day the earth stood still',
-  'ronin', 'cyberpunk', 'toy story 4'
-];
-
-const MARGOT_ROBBIE_KEYWORDS = [
-  'margot robbie', 'barbie', 'harley quinn', 'suicide squad', 'birds of prey',
-  'wolf of wall street', 'i tonya', 'once upon a time in hollywood', 'babylon',
-  'amsterdam', 'bombshell', 'focus', 'legend of tarzan'
-];
-
-const TIMOTHEE_CHALAMET_KEYWORDS = [
-  'timothée chalamet', 'timothee chalamet', 'dune', 'call me by your name',
-  'little women', 'beautiful boy', 'wonka', 'bones and all', 'the king',
-  'lady bird', 'hot summer nights', 'don\'t look up'
-];
-
-const ROCK_KEYWORDS = [
-  'dwayne johnson', 'the rock', 'fast and furious', 'jumanji', 'black adam',
-  'san andreas', 'rampage', 'skyscraper', 'jungle cruise', 'red notice',
-  'central intelligence', 'baywatch', 'moana'
-];
-
-// Franchise-specific keywords
-const STAR_WARS_KEYWORDS = [
-  'star wars', 'jedi', 'sith', 'skywalker', 'mandalorian', 'force awakens',
-  'darth', 'yoda', 'lightsaber', 'empire strikes back', 'return of the jedi',
-  'phantom menace', 'attack of the clones', 'revenge of the sith', 'rogue one',
-  'solo', 'andor', 'ahsoka', 'book of boba', 'obi-wan', 'acolyte'
-];
-
-const HARRY_POTTER_KEYWORDS = [
-  'harry potter', 'hogwarts', 'wizard', 'voldemort', 'hermione', 'dumbledore',
-  'fantastic beasts', "philosopher's stone", "sorcerer's stone", 'chamber of secrets',
-  'prisoner of azkaban', 'goblet of fire', 'order of the phoenix', 'half-blood prince',
-  'deathly hallows', 'grindelwald'
-];
-
-const FAST_FURIOUS_KEYWORDS = [
-  'fast', 'furious', 'dom', 'toretto', 'fast five', 'tokyo drift', 'hobbs and shaw',
-  'f9', 'fast x', 'ride or die', '2 fast 2 furious', 'family'
-];
-
-const JAMES_BOND_KEYWORDS = [
-  'james bond', 'bond', '007', 'skyfall', 'spectre', 'casino royale', 'no time to die',
-  'quantum of solace', 'goldeneye', 'die another day', 'tomorrow never dies',
-  'dr. no', 'goldfinger', 'thunderball', 'license to kill'
-];
-
-const MISSION_IMPOSSIBLE_KEYWORDS = [
-  'mission impossible', 'mission: impossible', 'ethan hunt', 'tom cruise',
-  'fallout', 'rogue nation', 'ghost protocol', 'dead reckoning'
-];
-
-const JURASSIC_KEYWORDS = [
-  'jurassic park', 'jurassic world', 'dinosaur', 'velociraptor', 't-rex',
-  'lost world', 'fallen kingdom', 'dominion', 'rex', 'raptor'
-];
-
-const BATMAN_KEYWORDS = [
-  'batman', 'gotham', 'dark knight', 'joker', 'bruce wayne', 'riddler', 'penguin',
-  'catwoman', 'bane', 'two-face', 'scarecrow', 'arkham', 'batmobile'
-];
-
-const SPIDER_MAN_KEYWORDS = [
-  'spider-man', 'spiderman', 'peter parker', 'miles morales', 'spider-verse',
-  'homecoming', 'far from home', 'no way home', 'venom', 'multiverse'
-];
-
-const LOTR_KEYWORDS = [
-  'lord of the rings', 'hobbit', 'middle-earth', 'frodo', 'gandalf', 'sauron',
-  'mordor', 'fellowship', 'two towers', 'return of the king', 'rings of power',
-  'tolkien', 'bilbo', 'gollum', 'aragorn', 'legolas'
-];
-
-const PIRATES_KEYWORDS = [
-  'pirates of the caribbean', 'jack sparrow', 'caribbean', 'black pearl',
-  'dead men tell no tales', "dead man's chest", "at world's end", 'curse of the black pearl'
-];
-
-// Location and era keywords
-const WW2_KEYWORDS = [
-  'world war 2', 'world war ii', 'wwii', 'ww2', 'nazi', 'hitler', 'normandy',
-  'd-day', '1940s', 'holocaust', 'auschwitz', 'pearl harbor', 'stalingrad',
-  'blitz', 'dunkirk', 'resistance', 'occupation', 'third reich'
-];
-
-const MEDIEVAL_KEYWORDS = [
-  'medieval', 'knight', 'castle', 'king', 'queen', 'kingdom', 'sword', 'throne',
-  'crusade', 'middle ages', 'dragon', 'lord', 'noble', 'jousting', 'siege'
-];
-
-const DYSTOPIAN_KEYWORDS = [
-  'dystopia', 'dystopian', 'hunger games', 'divergent', 'maze runner', '1984',
-  'brave new world', 'handmaid', 'blade runner', 'children of men', 'v for vendetta',
-  'equilibrium', 'gattaca', 'fahrenheit', 'brave new'
-];
-
-const NEW_YORK_KEYWORDS = [
-  'new york', 'nyc', 'manhattan', 'brooklyn', 'bronx', 'queens', 'central park',
-  'empire state', 'wall street', 'times square', 'statue of liberty', 'harlem',
-  'broadway', 'fifth avenue', 'big apple'
-];
-
-const PARIS_KEYWORDS = [
-  'paris', 'france', 'eiffel', 'louvre', 'seine', 'montmartre', 'champs-élysées',
-  'notre-dame', 'versailles', 'french', 'parisien', 'parisienne'
-];
-
-const LONDON_KEYWORDS = [
-  'london', 'england', 'british', 'uk', 'thames', 'big ben', 'westminster',
-  'buckingham', 'english', 'britain', 'oxford', 'cambridge'
-];
-
-const JAPAN_KEYWORDS = [
-  'japan', 'japanese', 'tokyo', 'samurai', 'ninja', 'yakuza', 'osaka', 'kyoto',
-  'shogun', 'ronin', 'bushido', 'shinobi', 'katana', 'geisha', 'emperor'
-];
-
-// Narrative elements keywords
-const TWIST_KEYWORDS = [
-  'twist', 'fight club', 'sixth sense', 'usual suspects', 'shutter island',
-  'gone girl', 'memento', 'prestige', 'identity', 'oldboy', 'se7en',
-  'the others', 'saw', 'unbreakable', 'split', 'primal fear'
-];
-
-const FOUND_FOOTAGE_KEYWORDS = [
-  'found footage', 'blair witch', 'paranormal activity', 'cloverfield', 'rec',
-  'chronicle', 'vhs', 'unfriended', 'searching', 'host', 'creep'
-];
-
-const OSCAR_KEYWORDS = [
-  'oscar', 'academy award', 'best picture', 'parasite', 'moonlight', 'spotlight',
-  'birdman', 'shape of water', 'green book', 'nomadland', 'coda', 'oppenheimer',
-  'everything everywhere', 'argo', 'artist', '12 years a slave'
-];
-
-const APPLE_TV_KEYWORDS = [
-  'apple tv', 'apple+', 'ted lasso', 'severance', 'the morning show', 'foundation',
-  'for all mankind', 'see', 'invasion', 'silo', 'slow horses', 'shrinking',
-  'pachinko', 'coda', 'finch', 'the banker', 'wolfwalkers'
-];
-
-const DISNEY_PLUS_KEYWORDS = [
-  'disney+', 'disney plus', 'mandalorian', 'wandavision', 'loki', 'falcon and winter soldier',
-  'hawkeye', 'moon knight', 'she-hulk', 'ms marvel', 'obi-wan', 'andor', 'ahsoka',
-  'book of boba', 'willow', 'national treasure', 'percy jackson'
-];
-
-// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+function hasGenre(item: MediaItem, genreIds: number[]): boolean {
+  return item.genre_ids?.some(id => genreIds.includes(id)) || false;
+}
 
 function matchesKeywords(item: MediaItem, keywords: string[]): boolean {
   const title = isMovie(item) ? item.title : item.name;
@@ -550,17 +18,10 @@ function matchesKeywords(item: MediaItem, keywords: string[]): boolean {
   const overview = item.overview || '';
   const text = `${title} ${originalTitle} ${overview}`.toLowerCase();
   
-  // Check text-based keywords
   const textMatch = keywords.some(keyword => text.includes(keyword.toLowerCase()));
-  
-  // Also check TMDB keywords for better accuracy
   const tmdbMatch = hasKeywordByName(item, keywords);
   
   return textMatch || tmdbMatch;
-}
-
-function hasGenre(item: MediaItem, genreIds: number[]): boolean {
-  return item.genre_ids?.some(id => genreIds.includes(id)) || false;
 }
 
 function shouldInclude(matchesCondition: boolean, answer: AnswerType): boolean {
@@ -580,72 +41,261 @@ function shouldInclude(matchesCondition: boolean, answer: AnswerType): boolean {
   }
 }
 
+// Helper to get movie-specific data
+function getMovieData(item: MediaItem): TMDBMovieEnriched | null {
+  return isMovie(item) ? item : null;
+}
+
+// Helper to get TV-specific data  
+function getTVData(item: MediaItem): TMDBTVEnriched | null {
+  return isTVShow(item) ? item : null;
+}
+
 // ============================================================================
-// QUESTION DEFINITIONS - 80+ QUESTIONS
+// KEYWORD DATABASES (simplified - for text matching fallback)
+// ============================================================================
+
+const SUPERHERO_KEYWORDS = [
+  'marvel', 'avengers', 'spider-man', 'spiderman', 'batman', 'superman', 'dc',
+  'iron man', 'captain america', 'thor', 'hulk', 'x-men', 'deadpool',
+  'wonder woman', 'justice league', 'aquaman', 'black panther',
+  'guardians of the galaxy', 'doctor strange', 'black widow', 'shang-chi',
+  'eternals', 'moon knight', 'she-hulk', 'loki', 'daredevil', 'the boys',
+  'invincible', 'watchmen', 'the flash', 'superman & lois'
+];
+
+const CHRISTMAS_KEYWORDS = [
+  'christmas', 'noel', 'noël', 'santa', 'holiday', 'xmas',
+  'home alone', 'elf', 'grinch', 'polar express', 'love actually',
+  'die hard', 'klaus', 'jingle', 'white christmas'
+];
+
+const ZOMBIE_KEYWORDS = [
+  'zombie', 'zombies', 'undead', 'walking dead', 'outbreak', 'infected',
+  'world war z', 'train to busan', '28 days', 'zombieland', 'resident evil',
+  'all of us are dead', 'kingdom', 'army of the dead', 'last of us'
+];
+
+const VAMPIRE_KEYWORDS = [
+  'vampire', 'vampires', 'dracula', 'twilight', 'blade', 'underworld',
+  'true blood', 'what we do in the shadows', 'buffy', 'interview with the vampire',
+  'castlevania', 'hotel transylvania'
+];
+
+const SPACE_KEYWORDS = [
+  'space', 'star wars', 'star trek', 'galaxy', 'astronaut', 'interstellar',
+  'gravity', 'martian', 'mars', 'moon', 'expanse', 'foundation',
+  'for all mankind', 'battlestar', 'mandalorian', 'dune', 'ad astra'
+];
+
+const TIME_TRAVEL_KEYWORDS = [
+  'time travel', 'back to the future', 'looper', 'terminator', '12 monkeys',
+  'predestination', 'tenet', 'about time', 'edge of tomorrow', 'dark',
+  'loki', 'umbrella academy', 'outlander', 'quantum leap', 'doctor who'
+];
+
+const HEIST_KEYWORDS = [
+  'heist', 'robbery', 'bank', 'vault', "ocean's", 'italian job', 'heat',
+  'inside man', 'money heist', 'casa de papel', 'now you see me', 'lupin',
+  'the town', 'baby driver', 'snatch', 'reservoir dogs'
+];
+
+const BASED_ON_TRUE_STORY_KEYWORDS = [
+  'true story', 'based on', 'biopic', 'biography', 'real events',
+  'social network', 'wolf of wall street', 'schindler', 'spotlight',
+  'the big short', 'bohemian rhapsody', 'hidden figures', 'oppenheimer'
+];
+
+const ANIME_KEYWORDS = [
+  'anime', 'manga', 'naruto', 'one piece', 'attack on titan', 'demon slayer',
+  'my hero academia', 'dragon ball', 'death note', 'jujutsu kaisen',
+  'spy x family', 'chainsaw man', 'hunter x hunter', 'fullmetal',
+  'your name', 'spirited away', 'ghibli', 'evangelion'
+];
+
+const DYSTOPIAN_KEYWORDS = [
+  'dystopia', 'dystopian', 'hunger games', 'divergent', 'maze runner',
+  'handmaid', 'black mirror', 'blade runner', 'children of men',
+  'the 100', 'snowpiercer', 'brave new world', 'fahrenheit'
+];
+
+const FRANCHISE_KEYWORDS = ['2', '3', 'ii', 'iii', 'part', 'chapter', 'return', 'revenge', 'rises', 'sequel', 'remake'];
+
+// ============================================================================
+// QUESTION DEFINITIONS - 200+ QUESTIONS
 // ============================================================================
 
 export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
-  const questions: AkinatorQuestion[] = [
-    // ========== POPULARITY (3) ==========
-    {
-      id: 'very_popular',
-      text: 'Est-ce très populaire / un blockbuster ?',
-      category: 'popularity',
-      filterFn: (item, answer) => {
-        const isVeryPopular = item.popularity > 100 || item.vote_count > 5000;
-        return shouldInclude(isVeryPopular, answer);
-      }
-    },
-    {
-      id: 'highly_rated',
-      text: 'Est-ce très bien noté par les critiques ?',
-      category: 'popularity',
-      filterFn: (item, answer) => {
-        const isHighlyRated = item.vote_average >= 7.5 && item.vote_count > 500;
-        return shouldInclude(isHighlyRated, answer);
-      }
-    },
-    {
-      id: 'cult_classic',
-      text: 'Est-ce considéré comme un classique ou film culte ?',
-      category: 'popularity',
-      filterFn: (item, answer) => {
-        const year = getReleaseYear(item);
-        const isCult = (year < 2000 && item.vote_average >= 7.0 && item.vote_count > 1000) ||
-                       (item.vote_average >= 8.0 && item.vote_count > 2000);
-        return shouldInclude(isCult, answer);
-      }
-    },
+  const isTV = mediaType === 'tv';
+  const mediaLabel = isTV ? 'série' : 'film';
+  const mediaLabelCap = isTV ? 'Série' : 'Film';
+  
+  const questions: AkinatorQuestion[] = [];
 
-    // ========== RELEASE PERIOD (7) ==========
+  // ============================================================================
+  // GENRE QUESTIONS (18) - Universal, high priority
+  // ============================================================================
+  
+  questions.push(
+    {
+      id: 'animation',
+      text: `Est-ce un ${mediaLabel} d'animation ?`,
+      category: 'genre',
+      priority: 10,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [16]), answer)
+    },
+    {
+      id: 'comedy',
+      text: 'Est-ce une comédie ?',
+      category: 'genre',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [35]), answer)
+    },
+    {
+      id: 'horror',
+      text: `Est-ce un ${mediaLabel} d'horreur ?`,
+      category: 'genre',
+      priority: 10,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27]), answer)
+    },
+    {
+      id: 'action',
+      text: `Est-ce un ${mediaLabel} d'action ?`,
+      category: 'genre',
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10759] : [28, 12]), answer)
+    },
+    {
+      id: 'drama',
+      text: 'Est-ce un drame ?',
+      category: 'genre',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [18]), answer)
+    },
+    {
+      id: 'science_fiction',
+      text: 'Est-ce de la science-fiction ?',
+      category: 'genre',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10765] : [878]), answer)
+    },
+    {
+      id: 'fantasy',
+      text: 'Est-ce fantastique (magie, créatures) ?',
+      category: 'genre',
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10765] : [14]), answer)
+    },
+    {
+      id: 'thriller',
+      text: 'Est-ce un thriller ?',
+      category: 'genre',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [53]), answer)
+    },
+    {
+      id: 'romance',
+      text: 'Est-ce romantique ?',
+      category: 'genre',
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10749]), answer)
+    },
+    {
+      id: 'crime',
+      text: `Est-ce un ${mediaLabel} policier / crime ?`,
+      category: 'genre',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [80]), answer)
+    },
+    {
+      id: 'documentary',
+      text: 'Est-ce un documentaire ?',
+      category: 'genre',
+      priority: 10,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [99]), answer)
+    },
+    {
+      id: 'family',
+      text: `Est-ce un ${mediaLabel} familial / pour enfants ?`,
+      category: 'genre',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10751, 10762] : [10751]), answer)
+    },
+    {
+      id: 'war',
+      text: `Est-ce un ${mediaLabel} de guerre ?`,
+      category: 'genre',
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10768] : [10752]), answer)
+    },
+    {
+      id: 'western',
+      text: 'Est-ce un western ?',
+      category: 'genre',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [37]), answer)
+    },
+    {
+      id: 'mystery',
+      text: 'Est-ce un mystère / enquête ?',
+      category: 'genre',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [9648]), answer)
+    },
+    {
+      id: 'musical',
+      text: `Est-ce un ${mediaLabel} musical ?`,
+      category: 'genre',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10402]), answer)
+    },
+    {
+      id: 'history',
+      text: `Est-ce un ${mediaLabel} historique ?`,
+      category: 'genre',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [36]), answer)
+    },
+    {
+      id: 'adventure',
+      text: `Est-ce un ${mediaLabel} d'aventure ?`,
+      category: 'genre',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, isTV ? [10759] : [12]), answer)
+    }
+  );
+
+  // ============================================================================
+  // PERIOD / RELEASE YEAR (10) - High priority
+  // ============================================================================
+  
+  questions.push(
     {
       id: 'after_2020',
-      text: 'Est-ce sorti après 2020 ?',
+      text: `Est-ce sorti après 2020 ?`,
       category: 'period',
+      priority: 10,
       filterFn: (item, answer) => shouldInclude(getReleaseYear(item) > 2020, answer)
     },
     {
-      id: 'between_2015_2020',
-      text: 'Est-ce sorti entre 2015 et 2020 ?',
+      id: 'after_2015',
+      text: 'Est-ce sorti après 2015 ?',
       category: 'period',
-      filterFn: (item, answer) => {
-        const year = getReleaseYear(item);
-        return shouldInclude(year >= 2015 && year <= 2020, answer);
-      }
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(getReleaseYear(item) > 2015, answer)
     },
     {
-      id: 'between_2010_2014',
-      text: 'Est-ce sorti entre 2010 et 2014 ?',
+      id: 'after_2010',
+      text: 'Est-ce sorti après 2010 ?',
       category: 'period',
-      filterFn: (item, answer) => {
-        const year = getReleaseYear(item);
-        return shouldInclude(year >= 2010 && year <= 2014, answer);
-      }
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(getReleaseYear(item) > 2010, answer)
     },
     {
       id: 'between_2000_2009',
-      text: 'Est-ce sorti dans les années 2000 ?',
+      text: 'Est-ce sorti dans les années 2000 (2000-2009) ?',
       category: 'period',
+      priority: 6,
       filterFn: (item, answer) => {
         const year = getReleaseYear(item);
         return shouldInclude(year >= 2000 && year <= 2009, answer);
@@ -655,6 +305,7 @@ export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
       id: 'between_1990_1999',
       text: 'Est-ce sorti dans les années 90 ?',
       category: 'period',
+      priority: 6,
       filterFn: (item, answer) => {
         const year = getReleaseYear(item);
         return shouldInclude(year >= 1990 && year <= 1999, answer);
@@ -664,6 +315,7 @@ export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
       id: 'between_1980_1989',
       text: 'Est-ce sorti dans les années 80 ?',
       category: 'period',
+      priority: 6,
       filterFn: (item, answer) => {
         const year = getReleaseYear(item);
         return shouldInclude(year >= 1980 && year <= 1989, answer);
@@ -673,688 +325,1686 @@ export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
       id: 'before_1980',
       text: 'Est-ce sorti avant 1980 ?',
       category: 'period',
+      priority: 7,
       filterFn: (item, answer) => shouldInclude(getReleaseYear(item) < 1980 && getReleaseYear(item) > 0, answer)
     },
+    {
+      id: 'very_recent',
+      text: 'Est-ce sorti en 2023 ou 2024 ?',
+      category: 'period',
+      priority: 8,
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2023, answer);
+      }
+    },
+    {
+      id: '2010s',
+      text: 'Est-ce sorti dans les années 2010 (2010-2019) ?',
+      category: 'period',
+      priority: 6,
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2010 && year <= 2019, answer);
+      }
+    },
+    {
+      id: 'classic_era',
+      text: 'Est-ce un classique (avant 2000) ?',
+      category: 'period',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(getReleaseYear(item) < 2000 && getReleaseYear(item) > 0, answer)
+    }
+  );
 
-    // ========== LANGUAGE / ORIGIN (8) ==========
+  // ============================================================================
+  // LANGUAGE / ORIGIN (12) - High priority
+  // ============================================================================
+  
+  questions.push(
     {
       id: 'english',
       text: 'Est-ce en anglais ?',
       category: 'language',
+      priority: 10,
       filterFn: (item, answer) => shouldInclude(item.original_language === 'en', answer)
     },
     {
       id: 'french',
-      text: 'Est-ce français ?',
+      text: `Est-ce ${isTV ? 'une série française' : 'un film français'} ?`,
       category: 'language',
+      priority: 9,
       filterFn: (item, answer) => shouldInclude(item.original_language === 'fr', answer)
     },
     {
       id: 'korean',
-      text: 'Est-ce coréen ?',
+      text: `Est-ce ${isTV ? 'une série coréenne (K-drama)' : 'un film coréen'} ?`,
       category: 'language',
+      priority: 8,
       filterFn: (item, answer) => shouldInclude(item.original_language === 'ko', answer)
     },
     {
       id: 'japanese',
-      text: 'Est-ce japonais ?',
+      text: `Est-ce japonais ?`,
       category: 'language',
+      priority: 8,
       filterFn: (item, answer) => shouldInclude(item.original_language === 'ja', answer)
     },
     {
       id: 'spanish',
-      text: 'Est-ce espagnol ou latino-américain ?',
+      text: `Est-ce espagnol ou latino-américain ?`,
       category: 'language',
+      priority: 7,
       filterFn: (item, answer) => shouldInclude(item.original_language === 'es', answer)
     },
     {
       id: 'indian',
       text: 'Est-ce indien / Bollywood ?',
       category: 'language',
-      filterFn: (item, answer) => shouldInclude(['hi', 'ta', 'te', 'ml'].includes(item.original_language), answer)
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(['hi', 'ta', 'te', 'ml', 'kn'].includes(item.original_language), answer)
     },
     {
       id: 'chinese',
       text: 'Est-ce chinois ?',
       category: 'language',
+      priority: 7,
       filterFn: (item, answer) => shouldInclude(['zh', 'cn'].includes(item.original_language), answer)
     },
     {
-      id: 'european',
-      text: 'Est-ce européen (hors France/UK) ?',
+      id: 'german',
+      text: 'Est-ce allemand ?',
       category: 'language',
-      filterFn: (item, answer) => shouldInclude(['de', 'it', 'nl', 'sv', 'da', 'no', 'fi', 'pl', 'pt', 'ru'].includes(item.original_language), answer)
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(item.original_language === 'de', answer)
     },
+    {
+      id: 'italian',
+      text: 'Est-ce italien ?',
+      category: 'language',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(item.original_language === 'it', answer)
+    },
+    {
+      id: 'scandinavian',
+      text: 'Est-ce scandinave (suédois, danois, norvégien) ?',
+      category: 'language',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(['sv', 'da', 'no', 'fi'].includes(item.original_language), answer)
+    },
+    {
+      id: 'british',
+      text: `Est-ce britannique ?`,
+      category: 'language',
+      priority: 6,
+      filterFn: (item, answer) => {
+        if (isTVShow(item)) {
+          return shouldInclude(item.origin_country?.includes('GB') || false, answer);
+        }
+        return shouldInclude(false, answer); // Can't determine for movies without more data
+      }
+    },
+    {
+      id: 'non_english',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} non-anglophone ?`,
+      category: 'language',
+      priority: 8,
+      filterFn: (item, answer) => shouldInclude(item.original_language !== 'en', answer)
+    }
+  );
 
-    // ========== STUDIOS & FRANCHISES (5) ==========
+  // ============================================================================
+  // POPULARITY / RATINGS (8)
+  // ============================================================================
+  
+  questions.push(
+    {
+      id: 'very_popular',
+      text: 'Est-ce très populaire / un blockbuster ?',
+      category: 'popularity',
+      priority: 7,
+      filterFn: (item, answer) => {
+        const isVeryPopular = item.popularity > 100 || item.vote_count > 5000;
+        return shouldInclude(isVeryPopular, answer);
+      }
+    },
+    {
+      id: 'highly_rated',
+      text: 'Est-ce très bien noté (8+ sur TMDB) ?',
+      category: 'popularity',
+      priority: 6,
+      filterFn: (item, answer) => {
+        const isHighlyRated = item.vote_average >= 8.0 && item.vote_count > 1000;
+        return shouldInclude(isHighlyRated, answer);
+      }
+    },
+    {
+      id: 'cult_classic',
+      text: `Est-ce un classique culte ?`,
+      category: 'popularity',
+      priority: 5,
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        const isCult = (year < 2000 && item.vote_average >= 7.5 && item.vote_count > 1000);
+        return shouldInclude(isCult, answer);
+      }
+    },
+    {
+      id: 'indie',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} indépendant / petit budget ?`,
+      category: 'popularity',
+      priority: 5,
+      filterFn: (item, answer) => {
+        if (isMovie(item)) {
+          return shouldInclude((item.budget || 0) < 20000000 && (item.budget || 0) > 0, answer);
+        }
+        return shouldInclude(item.popularity < 30, answer);
+      }
+    },
+    {
+      id: 'mega_blockbuster',
+      text: 'Est-ce un méga-blockbuster (top films les plus vus) ?',
+      category: 'popularity',
+      priority: 6,
+      filterFn: (item, answer) => {
+        if (isMovie(item)) {
+          return shouldInclude((item.revenue || 0) > 500000000, answer);
+        }
+        return shouldInclude(item.popularity > 200 && item.vote_count > 3000, answer);
+      }
+    },
+    {
+      id: 'underrated',
+      text: `Est-ce considéré comme sous-estimé (bien noté mais peu connu) ?`,
+      category: 'popularity',
+      priority: 4,
+      filterFn: (item, answer) => {
+        const isUnderrated = item.vote_average >= 7.5 && item.vote_count < 2000 && item.popularity < 50;
+        return shouldInclude(isUnderrated, answer);
+      }
+    },
+    {
+      id: 'mainstream',
+      text: 'Est-ce grand public (pas un film de niche) ?',
+      category: 'popularity',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(item.vote_count > 1000, answer)
+    },
+    {
+      id: 'recently_trending',
+      text: 'Est-ce actuellement tendance / sorti récemment ?',
+      category: 'popularity',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(item.popularity > 80 && getReleaseYear(item) >= 2022, answer)
+    }
+  );
+
+  // ============================================================================
+  // THEMES & SPECIAL ELEMENTS (25)
+  // ============================================================================
+  
+  questions.push(
     {
       id: 'superhero',
-      text: 'Est-ce un film de super-héros (Marvel, DC) ?',
-      category: 'franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SUPERHERO_KEYWORDS), answer)
-    },
-    {
-      id: 'disney_pixar',
-      text: 'Est-ce un Disney ou Pixar ?',
-      category: 'franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DISNEY_PIXAR_KEYWORDS), answer)
-    },
-    {
-      id: 'ghibli',
-      text: 'Est-ce un film du studio Ghibli ?',
-      category: 'franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, GHIBLI_KEYWORDS), answer)
-    },
-    {
-      id: 'a24',
-      text: 'Est-ce une production A24 ou film indépendant ?',
-      category: 'franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, A24_KEYWORDS), answer)
-    },
-    {
-      id: 'sequel_remake',
-      text: 'Est-ce une suite, un remake ou un reboot ?',
-      category: 'franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FRANCHISE_KEYWORDS), answer)
-    },
-
-    // ========== THEMES & ELEMENTS (20) ==========
-    {
-      id: 'christmas',
-      text: 'Est-ce un film de Noël ?',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} de super-héros ?`,
       category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, CHRISTMAS_KEYWORDS), answer)
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, SUPERHERO_KEYWORDS) || 
+        hasProductionCompany(item, PRODUCTION_COMPANIES['Marvel Studios']) ||
+        hasProductionCompany(item, PRODUCTION_COMPANIES['DC Films']),
+        answer
+      )
     },
     {
       id: 'zombies',
       text: 'Y a-t-il des zombies ?',
       category: 'theme',
+      priority: 8,
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ZOMBIE_KEYWORDS), answer)
     },
     {
       id: 'vampires',
       text: 'Y a-t-il des vampires ?',
       category: 'theme',
+      priority: 8,
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, VAMPIRE_KEYWORDS), answer)
     },
     {
       id: 'space',
-      text: "L'histoire se passe-t-elle dans l'espace ?",
+      text: `L'action se passe-t-elle dans l'espace ?`,
       category: 'theme',
+      priority: 7,
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPACE_KEYWORDS), answer)
-    },
-    {
-      id: 'underwater',
-      text: "L'histoire se passe-t-elle sous l'eau / dans l'océan ?",
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, UNDERWATER_KEYWORDS), answer)
-    },
-    {
-      id: 'dinosaurs',
-      text: 'Y a-t-il des dinosaures ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DINOSAUR_KEYWORDS), answer)
-    },
-    {
-      id: 'prison',
-      text: "L'histoire se passe-t-elle en prison ?",
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PRISON_KEYWORDS), answer)
-    },
-    {
-      id: 'heist',
-      text: 'Est-ce un film de braquage / cambriolage ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, HEIST_KEYWORDS), answer)
-    },
-    {
-      id: 'martial_arts',
-      text: 'Y a-t-il des arts martiaux ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MARTIAL_ARTS_KEYWORDS), answer)
-    },
-    {
-      id: 'sport',
-      text: 'Est-ce centré sur le sport ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPORT_KEYWORDS), answer)
-    },
-    {
-      id: 'dance',
-      text: 'Est-ce centré sur la danse ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DANCE_KEYWORDS), answer)
-    },
-    {
-      id: 'road_movie',
-      text: 'Est-ce un road movie / voyage ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ROAD_MOVIE_KEYWORDS), answer)
-    },
-    {
-      id: 'post_apocalyptic',
-      text: 'Est-ce post-apocalyptique ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, POST_APOCALYPTIC_KEYWORDS), answer)
-    },
-    {
-      id: 'robots_ai',
-      text: "Y a-t-il des robots ou de l'IA ?",
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ROBOT_AI_KEYWORDS), answer)
     },
     {
       id: 'time_travel',
       text: 'Y a-t-il des voyages dans le temps ?',
       category: 'theme',
+      priority: 7,
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TIME_TRAVEL_KEYWORDS), answer)
     },
     {
+      id: 'heist',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} de braquage ?`,
+      category: 'theme',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, HEIST_KEYWORDS), answer)
+    },
+    {
       id: 'true_story',
-      text: "Est-ce basé sur une histoire vraie ?",
+      text: `Est-ce basé sur une histoire vraie ?`,
       category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TRUE_STORY_KEYWORDS) || hasGenre(item, [36]), answer)
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, BASED_ON_TRUE_STORY_KEYWORDS) || hasGenre(item, [36]), 
+        answer
+      )
     },
     {
-      id: 'book_adaptation',
-      text: "Est-ce adapté d'un livre ?",
+      id: 'christmas',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} de Noël ?`,
       category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, BOOK_ADAPTATION_KEYWORDS), answer)
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, CHRISTMAS_KEYWORDS), answer)
     },
     {
-      id: 'disaster',
-      text: 'Est-ce un film catastrophe ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DISASTER_KEYWORDS), answer)
-    },
-    {
-      id: 'family_friendly',
-      text: 'Est-ce adapté aux enfants/familles ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10751, 16]) && !hasGenre(item, [27, 53]), answer)
-    },
-    {
-      id: 'adult_content',
-      text: 'Est-ce réservé à un public adulte (violent, mature) ?',
-      category: 'theme',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27, 53, 80]) || (isMovie(item) && (item as any).adult), answer)
-    },
-
-    // ========== MAIN GENRES (18) ==========
-    {
-      id: 'action',
-      text: "Est-ce un film d'action ?",
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [28, 10759]), answer)
-    },
-    {
-      id: 'adventure',
-      text: "Est-ce un film d'aventure ?",
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [12, 10759]), answer)
-    },
-    {
-      id: 'animation',
-      text: "Est-ce un film d'animation ?",
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [16]), answer)
-    },
-    {
-      id: 'comedy',
-      text: 'Est-ce une comédie ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [35]), answer)
-    },
-    {
-      id: 'crime',
-      text: 'Est-ce un film policier / crime ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [80]), answer)
-    },
-    {
-      id: 'documentary',
-      text: 'Est-ce un documentaire ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [99]), answer)
-    },
-    {
-      id: 'drama',
-      text: 'Est-ce un drame ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [18]), answer)
-    },
-    {
-      id: 'family',
-      text: 'Est-ce un film familial ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10751]), answer)
-    },
-    {
-      id: 'fantasy',
-      text: 'Est-ce fantastique (magie, créatures) ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [14, 10765]), answer)
-    },
-    {
-      id: 'history',
-      text: 'Est-ce un film historique ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [36]), answer)
-    },
-    {
-      id: 'horror',
-      text: "Est-ce un film d'horreur ?",
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27]), answer)
-    },
-    {
-      id: 'music',
-      text: 'Est-ce un film musical ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10402]), answer)
-    },
-    {
-      id: 'mystery',
-      text: 'Est-ce un film à mystère / enquête ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [9648]), answer)
-    },
-    {
-      id: 'romance',
-      text: 'Est-ce romantique ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10749]), answer)
-    },
-    {
-      id: 'science_fiction',
-      text: 'Est-ce de la science-fiction ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [878, 10765]), answer)
-    },
-    {
-      id: 'thriller',
-      text: 'Est-ce un thriller ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [53]), answer)
-    },
-    {
-      id: 'war',
-      text: 'Est-ce un film de guerre ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10752, 10768]), answer)
-    },
-    {
-      id: 'western',
-      text: 'Est-ce un western ?',
-      category: 'genre',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [37]), answer)
-    },
-
-    // ========== SUB-GENRES (6) ==========
-    {
-      id: 'slasher',
-      text: 'Est-ce un slasher / horreur gore ?',
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SLASHER_KEYWORDS), answer)
-    },
-    {
-      id: 'psychological_horror',
-      text: "Est-ce de l'horreur psychologique ?",
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PSYCHOLOGICAL_HORROR_KEYWORDS), answer)
-    },
-    {
-      id: 'rom_com',
-      text: 'Est-ce une comédie romantique ?',
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ROM_COM_KEYWORDS) || (hasGenre(item, [35]) && hasGenre(item, [10749])), answer)
-    },
-    {
-      id: 'dark_comedy',
-      text: 'Est-ce une comédie noire / satirique ?',
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DARK_COMEDY_KEYWORDS), answer)
-    },
-    {
-      id: 'political_thriller',
-      text: 'Est-ce un thriller politique ?',
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, POLITICAL_THRILLER_KEYWORDS), answer)
-    },
-    {
-      id: 'anime_movie',
+      id: 'anime',
       text: 'Est-ce un anime ?',
-      category: 'subgenre',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ANIME_KEYWORDS) || (hasGenre(item, [16]) && item.original_language === 'ja'), answer)
-    },
-
-    // ========== DIRECTORS (10) ==========
-    {
-      id: 'nolan',
-      text: 'Le réalisateur est-il Christopher Nolan ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, NOLAN_KEYWORDS), answer)
-    },
-    {
-      id: 'tarantino',
-      text: 'Le réalisateur est-il Quentin Tarantino ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TARANTINO_KEYWORDS), answer)
-    },
-    {
-      id: 'spielberg',
-      text: 'Le réalisateur est-il Steven Spielberg ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPIELBERG_KEYWORDS), answer)
-    },
-    {
-      id: 'scorsese',
-      text: 'Le réalisateur est-il Martin Scorsese ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SCORSESE_KEYWORDS), answer)
-    },
-    {
-      id: 'villeneuve',
-      text: 'Le réalisateur est-il Denis Villeneuve ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, VILLENEUVE_KEYWORDS), answer)
-    },
-    {
-      id: 'ridley_scott',
-      text: 'Le réalisateur est-il Ridley Scott ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, RIDLEY_SCOTT_KEYWORDS), answer)
-    },
-    {
-      id: 'james_cameron',
-      text: 'Le réalisateur est-il James Cameron ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAMES_CAMERON_KEYWORDS), answer)
-    },
-    {
-      id: 'wes_anderson',
-      text: 'Le réalisateur est-il Wes Anderson ?',
-      category: 'director',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, WES_ANDERSON_KEYWORDS), answer)
-    },
-
-    // ========== ACTORS (8) ==========
-    {
-      id: 'dicaprio',
-      text: 'Y a-t-il Leonardo DiCaprio ?',
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DICAPRIO_KEYWORDS), answer)
-    },
-    {
-      id: 'tom_hanks',
-      text: 'Y a-t-il Tom Hanks ?',
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TOM_HANKS_KEYWORDS), answer)
-    },
-    {
-      id: 'keanu_reeves',
-      text: 'Y a-t-il Keanu Reeves ?',
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, KEANU_REEVES_KEYWORDS), answer)
-    },
-    {
-      id: 'margot_robbie',
-      text: 'Y a-t-il Margot Robbie ?',
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MARGOT_ROBBIE_KEYWORDS), answer)
-    },
-    {
-      id: 'timothee_chalamet',
-      text: 'Y a-t-il Timothée Chalamet ?',
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TIMOTHEE_CHALAMET_KEYWORDS), answer)
-    },
-    {
-      id: 'the_rock',
-      text: "Y a-t-il Dwayne 'The Rock' Johnson ?",
-      category: 'actor',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ROCK_KEYWORDS), answer)
-    },
-
-    // ========== SPECIFIC FRANCHISES (10) ==========
-    {
-      id: 'star_wars',
-      text: "Est-ce de l'univers Star Wars ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, STAR_WARS_KEYWORDS), answer)
-    },
-    {
-      id: 'harry_potter',
-      text: "Est-ce de l'univers Harry Potter ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, HARRY_POTTER_KEYWORDS), answer)
-    },
-    {
-      id: 'fast_furious',
-      text: "Est-ce de l'univers Fast & Furious ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FAST_FURIOUS_KEYWORDS), answer)
-    },
-    {
-      id: 'james_bond_franchise',
-      text: "Est-ce de l'univers James Bond ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAMES_BOND_KEYWORDS), answer)
-    },
-    {
-      id: 'mission_impossible',
-      text: "Est-ce de l'univers Mission Impossible ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MISSION_IMPOSSIBLE_KEYWORDS), answer)
-    },
-    {
-      id: 'jurassic_franchise',
-      text: "Est-ce de l'univers Jurassic Park ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JURASSIC_KEYWORDS), answer)
-    },
-    {
-      id: 'batman_franchise',
-      text: "Est-ce de l'univers Batman ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, BATMAN_KEYWORDS), answer)
-    },
-    {
-      id: 'spiderman_franchise',
-      text: "Est-ce de l'univers Spider-Man ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SPIDER_MAN_KEYWORDS), answer)
-    },
-    {
-      id: 'lotr_franchise',
-      text: "Est-ce de l'univers Le Seigneur des Anneaux ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, LOTR_KEYWORDS), answer)
-    },
-    {
-      id: 'pirates_franchise',
-      text: "Est-ce de l'univers Pirates des Caraïbes ?",
-      category: 'specific_franchise',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PIRATES_KEYWORDS), answer)
-    },
-
-    // ========== ERAS & LOCATIONS (12) ==========
-    {
-      id: 'ww2',
-      text: "L'action se passe-t-elle pendant la Seconde Guerre mondiale ?",
-      category: 'era',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, WW2_KEYWORDS), answer)
-    },
-    {
-      id: 'medieval',
-      text: "L'action se passe-t-elle au Moyen Âge ?",
-      category: 'era',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MEDIEVAL_KEYWORDS), answer)
-    },
-    {
-      id: 'future',
-      text: "L'action se passe-t-elle dans le futur ?",
-      category: 'era',
-      filterFn: (item, answer) => shouldInclude(hasGenre(item, [878]) || matchesKeywords(item, DYSTOPIAN_KEYWORDS), answer)
+      category: 'theme',
+      priority: 9,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ANIME_KEYWORDS) || 
+        (hasGenre(item, [16]) && item.original_language === 'ja'),
+        answer
+      )
     },
     {
       id: 'dystopian',
-      text: 'Est-ce dans un futur dystopique ?',
-      category: 'era',
+      text: 'Est-ce dans un univers dystopique ?',
+      category: 'theme',
+      priority: 6,
       filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DYSTOPIAN_KEYWORDS), answer)
     },
     {
-      id: 'new_york',
-      text: "L'action se passe-t-elle à New York ?",
-      category: 'location',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, NEW_YORK_KEYWORDS), answer)
+      id: 'sequel_franchise',
+      text: 'Est-ce une suite/partie d\'une franchise ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FRANCHISE_KEYWORDS), answer)
     },
     {
-      id: 'paris',
-      text: "L'action se passe-t-elle à Paris ?",
-      category: 'location',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PARIS_KEYWORDS), answer)
+      id: 'robots_ai',
+      text: `Y a-t-il des robots ou de l'intelligence artificielle ?`,
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['robot', 'ai', 'artificial intelligence', 'android', 'cyborg', 
+          'terminator', 'ex machina', 'westworld', 'i robot', 'wall-e', 'blade runner']),
+        answer
+      )
     },
     {
-      id: 'london',
-      text: "L'action se passe-t-elle à Londres ?",
-      category: 'location',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, LONDON_KEYWORDS), answer)
+      id: 'post_apocalyptic',
+      text: 'Est-ce post-apocalyptique ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['apocalypse', 'post-apocalyptic', 'end of the world', 'mad max', 
+          'walking dead', 'last of us', 'fallout', 'the road', 'quiet place', 'bird box']),
+        answer
+      )
     },
     {
-      id: 'japan_location',
-      text: "L'action se passe-t-elle au Japon ?",
-      category: 'location',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, JAPAN_KEYWORDS) || item.original_language === 'ja', answer)
+      id: 'sport',
+      text: `Est-ce centré sur le sport ?`,
+      category: 'theme',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['sport', 'football', 'basketball', 'baseball', 'boxing', 'rocky',
+          'creed', 'ted lasso', 'friday night lights', 'moneyball', 'formula', 'f1', 'racing']),
+        answer
+      )
     },
+    {
+      id: 'legal_courtroom',
+      text: 'Est-ce un drame juridique / de tribunal ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['lawyer', 'court', 'trial', 'judge', 'legal', 'attorney', 'suits',
+          'better call saul', 'the good wife', 'lincoln lawyer', 'primal fear', 'a few good men']),
+        answer
+      )
+    },
+    {
+      id: 'prison',
+      text: `L'action se passe-t-elle en prison ?`,
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['prison', 'jail', 'inmate', 'shawshank', 'green mile', 'oz',
+          'orange is the new black', 'prison break', 'escape from', 'con air']),
+        answer
+      )
+    },
+    {
+      id: 'mafia_gangster',
+      text: 'Est-ce sur la mafia / les gangsters ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['mafia', 'mob', 'gangster', 'godfather', 'goodfellas', 'scarface',
+          'sopranos', 'peaky blinders', 'narcos', 'cartel', 'casino']),
+        answer
+      )
+    },
+    {
+      id: 'serial_killer',
+      text: 'Y a-t-il un tueur en série ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['serial killer', 'hannibal', 'dexter', 'mindhunter', 'se7en',
+          'zodiac', 'silence of the lambs', 'dahmer', 'ted bundy', 'you']),
+        answer
+      )
+    },
+    {
+      id: 'high_school',
+      text: `L'action se passe-t-elle au lycée ?`,
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['high school', 'teenager', 'teen', 'prom', 'euphoria', 'riverdale',
+          'mean girls', 'clueless', 'breakfast club', 'stranger things', 'never have i ever']),
+        answer
+      )
+    },
+    {
+      id: 'college',
+      text: `L'action se passe-t-elle à l'université ?`,
+      category: 'theme',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['college', 'university', 'campus', 'frat', 'sorority', 'student',
+          'social network', 'good will hunting', 'pitch perfect', 'legally blonde']),
+        answer
+      )
+    },
+    {
+      id: 'medical',
+      text: `Est-ce ${isTV ? 'une série médicale' : 'sur le monde médical'} ?`,
+      category: 'theme',
+      priority: 7,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['hospital', 'doctor', 'nurse', 'surgery', 'medical', "grey's anatomy",
+          'house', 'the good doctor', 'chicago med', 'scrubs', 'er']),
+        answer
+      )
+    },
+    {
+      id: 'spy_espionage',
+      text: `Est-ce ${isTV ? 'une série' : 'un film'} d'espionnage ?`,
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['spy', 'espionage', 'cia', 'mi6', 'kgb', 'agent', 'james bond',
+          'mission impossible', 'bourne', 'homeland', 'the americans', 'slow horses']),
+        answer
+      )
+    },
+    {
+      id: 'disaster',
+      text: `Est-ce un ${mediaLabel} catastrophe ?`,
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['disaster', 'earthquake', 'volcano', 'tsunami', 'hurricane',
+          'armageddon', 'deep impact', '2012', 'san andreas', 'titanic', 'twister']),
+        answer
+      )
+    },
+    {
+      id: 'dance_musical',
+      text: 'Est-ce centré sur la danse ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['dance', 'dancing', 'ballet', 'step up', 'dirty dancing',
+          'la la land', 'black swan', 'footloose', 'fame', 'billy elliot']),
+        answer
+      )
+    },
+    {
+      id: 'cooking_food',
+      text: 'Est-ce centré sur la cuisine / gastronomie ?',
+      category: 'theme',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['chef', 'cook', 'restaurant', 'kitchen', 'food', 'ratatouille',
+          'the bear', 'boiling point', 'jiro', 'julie & julia', 'masterchef']),
+        answer
+      )
+    }
+  );
 
-    // ========== NARRATIVE ELEMENTS (8) ==========
-    {
-      id: 'twist_ending',
-      text: 'Y a-t-il un twist/retournement de situation majeur ?',
-      category: 'narrative',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, TWIST_KEYWORDS), answer)
-    },
-    {
-      id: 'found_footage',
-      text: 'Est-ce tourné en found footage / caméra à l\'épaule ?',
-      category: 'narrative',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FOUND_FOOTAGE_KEYWORDS), answer)
-    },
-    {
-      id: 'won_oscar',
-      text: 'A-t-il remporté un Oscar majeur (meilleur film) ?',
-      category: 'narrative',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, OSCAR_KEYWORDS), answer)
-    },
-    {
-      id: 'long_movie',
-      text: 'Dure-t-il plus de 2h30 ?',
-      category: 'narrative',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, [...NOLAN_KEYWORDS, ...SCORSESE_KEYWORDS, ...LOTR_KEYWORDS, 'titanic', 'avatar', 'oppenheimer', 'killers']), answer)
-    },
-
-    // ========== STREAMING PLATFORMS (4) ==========
-    {
-      id: 'apple_tv',
-      text: 'Est-ce une production Apple TV+ ?',
-      category: 'platform',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, APPLE_TV_KEYWORDS), answer)
-    },
-    {
-      id: 'disney_plus',
-      text: 'Est-ce une production Disney+ ?',
-      category: 'platform',
-      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, DISNEY_PLUS_KEYWORDS), answer)
-    },
-  ];
-
-  // ========== TV-SPECIFIC QUESTIONS (12) ==========
-  if (mediaType === 'tv') {
+  // ============================================================================
+  // DIRECTORS - Using REAL TMDB IDs (25 for movies only)
+  // ============================================================================
+  
+  if (!isTV) {
     questions.push(
       {
-        id: 'many_seasons',
+        id: 'director_nolan',
+        text: 'Le réalisateur est-il Christopher Nolan ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Christopher Nolan']), answer)
+      },
+      {
+        id: 'director_tarantino',
+        text: 'Le réalisateur est-il Quentin Tarantino ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Quentin Tarantino']), answer)
+      },
+      {
+        id: 'director_spielberg',
+        text: 'Le réalisateur est-il Steven Spielberg ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Steven Spielberg']), answer)
+      },
+      {
+        id: 'director_scorsese',
+        text: 'Le réalisateur est-il Martin Scorsese ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Martin Scorsese']), answer)
+      },
+      {
+        id: 'director_villeneuve',
+        text: 'Le réalisateur est-il Denis Villeneuve ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Denis Villeneuve']), answer)
+      },
+      {
+        id: 'director_ridley_scott',
+        text: 'Le réalisateur est-il Ridley Scott ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Ridley Scott']), answer)
+      },
+      {
+        id: 'director_james_cameron',
+        text: 'Le réalisateur est-il James Cameron ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['James Cameron']), answer)
+      },
+      {
+        id: 'director_wes_anderson',
+        text: 'Le réalisateur est-il Wes Anderson ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Wes Anderson']), answer)
+      },
+      {
+        id: 'director_fincher',
+        text: 'Le réalisateur est-il David Fincher ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['David Fincher']), answer)
+      },
+      {
+        id: 'director_kubrick',
+        text: 'Le réalisateur est-il Stanley Kubrick ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Stanley Kubrick']), answer)
+      },
+      {
+        id: 'director_hitchcock',
+        text: 'Le réalisateur est-il Alfred Hitchcock ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Alfred Hitchcock']), answer)
+      },
+      {
+        id: 'director_tim_burton',
+        text: 'Le réalisateur est-il Tim Burton ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Tim Burton']), answer)
+      },
+      {
+        id: 'director_peter_jackson',
+        text: 'Le réalisateur est-il Peter Jackson ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Peter Jackson']), answer)
+      },
+      {
+        id: 'director_del_toro',
+        text: 'Le réalisateur est-il Guillermo del Toro ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Guillermo del Toro']), answer)
+      },
+      {
+        id: 'director_greta_gerwig',
+        text: 'Le réalisateur est-il Greta Gerwig ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Greta Gerwig']), answer)
+      },
+      {
+        id: 'director_jordan_peele',
+        text: 'Le réalisateur est-il Jordan Peele ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Jordan Peele']), answer)
+      },
+      {
+        id: 'director_bong',
+        text: 'Le réalisateur est-il Bong Joon-ho ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Bong Joon-ho']), answer)
+      },
+      {
+        id: 'director_miyazaki',
+        text: 'Le réalisateur est-il Hayao Miyazaki ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Hayao Miyazaki']), answer)
+      },
+      {
+        id: 'director_chazelle',
+        text: 'Le réalisateur est-il Damien Chazelle ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Damien Chazelle']), answer)
+      },
+      {
+        id: 'director_ari_aster',
+        text: 'Le réalisateur est-il Ari Aster ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Ari Aster']), answer)
+      },
+      {
+        id: 'director_zack_snyder',
+        text: 'Le réalisateur est-il Zack Snyder ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Zack Snyder']), answer)
+      },
+      {
+        id: 'director_michael_bay',
+        text: 'Le réalisateur est-il Michael Bay ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Michael Bay']), answer)
+      },
+      {
+        id: 'director_guy_ritchie',
+        text: 'Le réalisateur est-il Guy Ritchie ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Guy Ritchie']), answer)
+      },
+      {
+        id: 'director_edgar_wright',
+        text: 'Le réalisateur est-il Edgar Wright ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Edgar Wright']), answer)
+      },
+      {
+        id: 'director_taika_waititi',
+        text: 'Le réalisateur est-il Taika Waititi ?',
+        category: 'director',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasDirector(item, FAMOUS_DIRECTORS['Taika Waititi']), answer)
+      }
+    );
+  }
+
+  // ============================================================================
+  // ACTORS - Using REAL TMDB IDs (50 questions)
+  // ============================================================================
+  
+  questions.push(
+    {
+      id: 'actor_dicaprio',
+      text: 'Y a-t-il Leonardo DiCaprio ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Leonardo DiCaprio']), answer)
+    },
+    {
+      id: 'actor_tom_hanks',
+      text: 'Y a-t-il Tom Hanks ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Tom Hanks']), answer)
+    },
+    {
+      id: 'actor_brad_pitt',
+      text: 'Y a-t-il Brad Pitt ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Brad Pitt']), answer)
+    },
+    {
+      id: 'actor_the_rock',
+      text: "Y a-t-il Dwayne 'The Rock' Johnson ?",
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Dwayne Johnson']), answer)
+    },
+    {
+      id: 'actor_timothee',
+      text: 'Y a-t-il Timothée Chalamet ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Timothée Chalamet']), answer)
+    },
+    {
+      id: 'actor_margot',
+      text: 'Y a-t-il Margot Robbie ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Margot Robbie']), answer)
+    },
+    {
+      id: 'actor_scarlett',
+      text: 'Y a-t-il Scarlett Johansson ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Scarlett Johansson']), answer)
+    },
+    {
+      id: 'actor_keanu',
+      text: 'Y a-t-il Keanu Reeves ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Keanu Reeves']), answer)
+    },
+    {
+      id: 'actor_rdj',
+      text: 'Y a-t-il Robert Downey Jr. ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Robert Downey Jr.']), answer)
+    },
+    {
+      id: 'actor_chris_evans',
+      text: 'Y a-t-il Chris Evans ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Chris Evans']), answer)
+    },
+    {
+      id: 'actor_chris_hemsworth',
+      text: 'Y a-t-il Chris Hemsworth ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Chris Hemsworth']), answer)
+    },
+    {
+      id: 'actor_tom_cruise',
+      text: 'Y a-t-il Tom Cruise ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Tom Cruise']), answer)
+    },
+    {
+      id: 'actor_will_smith',
+      text: 'Y a-t-il Will Smith ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Will Smith']), answer)
+    },
+    {
+      id: 'actor_samuel_jackson',
+      text: 'Y a-t-il Samuel L. Jackson ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Samuel L. Jackson']), answer)
+    },
+    {
+      id: 'actor_morgan_freeman',
+      text: 'Y a-t-il Morgan Freeman ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Morgan Freeman']), answer)
+    },
+    {
+      id: 'actor_denzel',
+      text: 'Y a-t-il Denzel Washington ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Denzel Washington']), answer)
+    },
+    {
+      id: 'actor_meryl',
+      text: 'Y a-t-il Meryl Streep ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Meryl Streep']), answer)
+    },
+    {
+      id: 'actor_cate',
+      text: 'Y a-t-il Cate Blanchett ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Cate Blanchett']), answer)
+    },
+    {
+      id: 'actor_emma_stone',
+      text: 'Y a-t-il Emma Stone ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Emma Stone']), answer)
+    },
+    {
+      id: 'actor_jennifer_lawrence',
+      text: 'Y a-t-il Jennifer Lawrence ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Jennifer Lawrence']), answer)
+    },
+    {
+      id: 'actor_ryan_gosling',
+      text: 'Y a-t-il Ryan Gosling ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Ryan Gosling']), answer)
+    },
+    {
+      id: 'actor_jake_gyllenhaal',
+      text: 'Y a-t-il Jake Gyllenhaal ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Jake Gyllenhaal']), answer)
+    },
+    {
+      id: 'actor_joaquin',
+      text: 'Y a-t-il Joaquin Phoenix ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Joaquin Phoenix']), answer)
+    },
+    {
+      id: 'actor_florence',
+      text: 'Y a-t-il Florence Pugh ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Florence Pugh']), answer)
+    },
+    {
+      id: 'actor_zendaya',
+      text: 'Y a-t-il Zendaya ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Zendaya']), answer)
+    },
+    {
+      id: 'actor_adam_driver',
+      text: 'Y a-t-il Adam Driver ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Adam Driver']), answer)
+    },
+    {
+      id: 'actor_oscar_isaac',
+      text: 'Y a-t-il Oscar Isaac ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Oscar Isaac']), answer)
+    },
+    {
+      id: 'actor_saoirse',
+      text: 'Y a-t-il Saoirse Ronan ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Saoirse Ronan']), answer)
+    },
+    {
+      id: 'actor_ana_de_armas',
+      text: 'Y a-t-il Ana de Armas ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Ana de Armas']), answer)
+    },
+    {
+      id: 'actor_austin_butler',
+      text: 'Y a-t-il Austin Butler ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Austin Butler']), answer)
+    },
+    {
+      id: 'actor_matt_damon',
+      text: 'Y a-t-il Matt Damon ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Matt Damon']), answer)
+    },
+    {
+      id: 'actor_christian_bale',
+      text: 'Y a-t-il Christian Bale ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Christian Bale']), answer)
+    },
+    {
+      id: 'actor_nicolas_cage',
+      text: 'Y a-t-il Nicolas Cage ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Nicolas Cage']), answer)
+    },
+    {
+      id: 'actor_harrison_ford',
+      text: 'Y a-t-il Harrison Ford ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Harrison Ford']), answer)
+    },
+    {
+      id: 'actor_al_pacino',
+      text: 'Y a-t-il Al Pacino ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Al Pacino']), answer)
+    },
+    {
+      id: 'actor_de_niro',
+      text: 'Y a-t-il Robert De Niro ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Robert De Niro']), answer)
+    },
+    {
+      id: 'actor_anthony_hopkins',
+      text: 'Y a-t-il Anthony Hopkins ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Anthony Hopkins']), answer)
+    },
+    {
+      id: 'actor_michael_caine',
+      text: 'Y a-t-il Michael Caine ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Michael Caine']), answer)
+    },
+    {
+      id: 'actor_tom_hardy',
+      text: 'Y a-t-il Tom Hardy ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Tom Hardy']), answer)
+    },
+    {
+      id: 'actor_cillian',
+      text: 'Y a-t-il Cillian Murphy ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Cillian Murphy']), answer)
+    },
+    {
+      id: 'actor_pedro_pascal',
+      text: 'Y a-t-il Pedro Pascal ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Pedro Pascal']), answer)
+    },
+    {
+      id: 'actor_jason_momoa',
+      text: 'Y a-t-il Jason Momoa ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Jason Momoa']), answer)
+    },
+    {
+      id: 'actor_gal_gadot',
+      text: 'Y a-t-il Gal Gadot ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Gal Gadot']), answer)
+    },
+    {
+      id: 'actor_henry_cavill',
+      text: 'Y a-t-il Henry Cavill ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Henry Cavill']), answer)
+    },
+    {
+      id: 'actor_anne_hathaway',
+      text: 'Y a-t-il Anne Hathaway ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Anne Hathaway']), answer)
+    },
+    {
+      id: 'actor_michelle_yeoh',
+      text: 'Y a-t-il Michelle Yeoh ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Michelle Yeoh']), answer)
+    },
+    {
+      id: 'actor_viola',
+      text: 'Y a-t-il Viola Davis ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Viola Davis']), answer)
+    },
+    {
+      id: 'actor_sandra',
+      text: 'Y a-t-il Sandra Bullock ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Sandra Bullock']), answer)
+    },
+    {
+      id: 'actor_julia',
+      text: 'Y a-t-il Julia Roberts ?',
+      category: 'actor',
+      priority: 3,
+      filterFn: (item, answer) => shouldInclude(hasActor(item, FAMOUS_ACTORS['Julia Roberts']), answer)
+    }
+  );
+
+  // ============================================================================
+  // STUDIOS / PRODUCTION COMPANIES - Using REAL TMDB IDs (15)
+  // ============================================================================
+  
+  questions.push(
+    {
+      id: 'studio_marvel',
+      text: 'Est-ce une production Marvel Studios ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Marvel Studios']), answer)
+    },
+    {
+      id: 'studio_dc',
+      text: 'Est-ce une production DC Films ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['DC Films']), answer)
+    },
+    {
+      id: 'studio_pixar',
+      text: 'Est-ce un film Pixar ?',
+      category: 'studio',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Pixar']), answer)
+    },
+    {
+      id: 'studio_disney',
+      text: 'Est-ce une production Walt Disney ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Disney']), answer)
+    },
+    {
+      id: 'studio_a24',
+      text: 'Est-ce une production A24 ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['A24']), answer)
+    },
+    {
+      id: 'studio_warner',
+      text: 'Est-ce une production Warner Bros ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Warner Bros']), answer)
+    },
+    {
+      id: 'studio_universal',
+      text: 'Est-ce une production Universal ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Universal Pictures']), answer)
+    },
+    {
+      id: 'studio_paramount',
+      text: 'Est-ce une production Paramount ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Paramount']), answer)
+    },
+    {
+      id: 'studio_blumhouse',
+      text: 'Est-ce une production Blumhouse ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Blumhouse']), answer)
+    },
+    {
+      id: 'studio_ghibli',
+      text: 'Est-ce un film du Studio Ghibli ?',
+      category: 'studio',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Studio Ghibli']), answer)
+    },
+    {
+      id: 'studio_dreamworks',
+      text: 'Est-ce une production DreamWorks Animation ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['DreamWorks Animation']), answer)
+    },
+    {
+      id: 'studio_lionsgate',
+      text: 'Est-ce une production Lionsgate ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Lionsgate']), answer)
+    },
+    {
+      id: 'studio_lucasfilm',
+      text: 'Est-ce une production Lucasfilm ?',
+      category: 'studio',
+      priority: 5,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Lucasfilm']), answer)
+    },
+    {
+      id: 'studio_legendary',
+      text: 'Est-ce une production Legendary Pictures ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Legendary']), answer)
+    },
+    {
+      id: 'studio_bad_robot',
+      text: 'Est-ce une production Bad Robot (J.J. Abrams) ?',
+      category: 'studio',
+      priority: 4,
+      filterFn: (item, answer) => shouldInclude(hasProductionCompany(item, PRODUCTION_COMPANIES['Bad Robot']), answer)
+    }
+  );
+
+  // ============================================================================
+  // TV NETWORKS - Using REAL TMDB IDs (TV only - 20)
+  // ============================================================================
+  
+  if (isTV) {
+    questions.push(
+      {
+        id: 'network_netflix',
+        text: 'Est-ce une série Netflix ?',
+        category: 'platform',
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Netflix']), answer)
+      },
+      {
+        id: 'network_hbo',
+        text: 'Est-ce une série HBO ?',
+        category: 'platform',
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['HBO']), answer)
+      },
+      {
+        id: 'network_amazon',
+        text: 'Est-ce une série Amazon Prime Video ?',
+        category: 'platform',
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Amazon Prime Video']), answer)
+      },
+      {
+        id: 'network_disney_plus',
+        text: 'Est-ce une série Disney+ ?',
+        category: 'platform',
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Disney+']), answer)
+      },
+      {
+        id: 'network_apple',
+        text: 'Est-ce une série Apple TV+ ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Apple TV+']), answer)
+      },
+      {
+        id: 'network_hulu',
+        text: 'Est-ce une série Hulu ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Hulu']), answer)
+      },
+      {
+        id: 'network_amc',
+        text: 'Est-ce une série AMC ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['AMC']), answer)
+      },
+      {
+        id: 'network_fx',
+        text: 'Est-ce une série FX ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['FX']), answer)
+      },
+      {
+        id: 'network_showtime',
+        text: 'Est-ce une série Showtime ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Showtime']), answer)
+      },
+      {
+        id: 'network_bbc',
+        text: 'Est-ce une série BBC ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(
+          hasNetwork(item, TV_NETWORKS['BBC']) || hasNetwork(item, TV_NETWORKS['BBC One']) || hasNetwork(item, TV_NETWORKS['BBC Two']),
+          answer
+        )
+      },
+      {
+        id: 'network_nbc',
+        text: 'Est-ce une série NBC ?',
+        category: 'platform',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['NBC']), answer)
+      },
+      {
+        id: 'network_cbs',
+        text: 'Est-ce une série CBS ?',
+        category: 'platform',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['CBS']), answer)
+      },
+      {
+        id: 'network_abc',
+        text: 'Est-ce une série ABC ?',
+        category: 'platform',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['ABC']), answer)
+      },
+      {
+        id: 'network_fox',
+        text: 'Est-ce une série Fox ?',
+        category: 'platform',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Fox']), answer)
+      },
+      {
+        id: 'network_cw',
+        text: 'Est-ce une série The CW ?',
+        category: 'platform',
+        priority: 4,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['The CW']), answer)
+      },
+      {
+        id: 'network_canal',
+        text: 'Est-ce une série Canal+ ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Canal+']), answer)
+      },
+      {
+        id: 'network_tvn',
+        text: 'Est-ce une série tvN (Corée) ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['tvN']), answer)
+      },
+      {
+        id: 'network_adult_swim',
+        text: 'Est-ce une série Adult Swim ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Adult Swim']), answer)
+      },
+      {
+        id: 'network_cartoon_network',
+        text: 'Est-ce une série Cartoon Network ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Cartoon Network']), answer)
+      },
+      {
+        id: 'network_comedy_central',
+        text: 'Est-ce une série Comedy Central ?',
+        category: 'platform',
+        priority: 5,
+        filterFn: (item, answer) => shouldInclude(hasNetwork(item, TV_NETWORKS['Comedy Central']), answer)
+      }
+    );
+  }
+
+  // ============================================================================
+  // TV-SPECIFIC QUESTIONS (20) - Using real data
+  // ============================================================================
+  
+  if (isTV) {
+    questions.push(
+      {
+        id: 'tv_many_seasons',
         text: 'Y a-t-il plus de 5 saisons ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(item.vote_count > 5000 || item.popularity > 200, answer)
+        priority: 7,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.number_of_seasons > 5, answer);
+        }
       },
       {
-        id: 'mini_series',
+        id: 'tv_mini_series',
         text: 'Est-ce une mini-série (1 saison) ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(item.vote_count < 2000 && item.vote_average >= 7, answer)
+        priority: 7,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.number_of_seasons === 1, answer);
+        }
       },
       {
-        id: 'netflix_original',
-        text: 'Est-ce une série Netflix Original ?',
+        id: 'tv_ended',
+        text: 'Est-ce une série terminée ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, NETFLIX_KEYWORDS), answer)
+        priority: 6,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.status === 'Ended' || tv.status === 'Canceled', answer);
+        }
       },
       {
-        id: 'hbo_series',
-        text: 'Est-ce une série HBO ?',
+        id: 'tv_ongoing',
+        text: 'Est-ce une série toujours en cours ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, HBO_KEYWORDS), answer)
+        priority: 6,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.status === 'Returning Series', answer);
+        }
       },
       {
-        id: 'amazon_series',
-        text: 'Est-ce une série Amazon Prime ?',
+        id: 'tv_short_episodes',
+        text: 'Les épisodes font-ils moins de 30 minutes ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, AMAZON_KEYWORDS), answer)
+        priority: 5,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv || !tv.episode_run_time?.length) return shouldInclude(false, answer);
+          const avgRuntime = tv.episode_run_time[0];
+          return shouldInclude(avgRuntime < 30, answer);
+        }
       },
       {
-        id: 'anime_series',
-        text: 'Est-ce un anime ?',
+        id: 'tv_long_episodes',
+        text: 'Les épisodes font-ils plus de 45 minutes ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, ANIME_KEYWORDS) || (hasGenre(item, [16]) && item.original_language === 'ja'), answer)
+        priority: 5,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv || !tv.episode_run_time?.length) return shouldInclude(false, answer);
+          const avgRuntime = tv.episode_run_time[0];
+          return shouldInclude(avgRuntime > 45, answer);
+        }
       },
       {
-        id: 'sitcom',
+        id: 'tv_sitcom',
         text: 'Est-ce une sitcom ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, SITCOM_KEYWORDS), answer)
+        priority: 7,
+        filterFn: (item, answer) => shouldInclude(
+          matchesKeywords(item, ['sitcom', 'friends', 'the office', 'brooklyn nine-nine', 
+            'big bang', 'how i met your mother', 'modern family', "schitt's creek", 'ted lasso',
+            'parks and recreation', 'community', 'new girl', 'superstore']),
+          answer
+        )
       },
       {
-        id: 'medical_series',
-        text: 'Est-ce une série médicale ?',
+        id: 'tv_procedural',
+        text: 'Est-ce une série procédurale (épisodes indépendants) ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, MEDICAL_KEYWORDS), answer)
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(
+          matchesKeywords(item, ['csi', 'ncis', 'law & order', 'criminal minds', 'bones',
+            'castle', 'the mentalist', 'elementary', 'chicago', 'fbi', 'blue bloods']),
+          answer
+        )
       },
       {
-        id: 'procedural',
-        text: 'Est-ce une série policière procédurale ?',
+        id: 'tv_anthology',
+        text: 'Est-ce une série anthologie (histoire différente par saison) ?',
         category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, PROCEDURAL_KEYWORDS), answer)
+        priority: 6,
+        filterFn: (item, answer) => shouldInclude(
+          matchesKeywords(item, ['anthology', 'black mirror', 'american horror story',
+            'true detective', 'fargo', 'the sinner', 'american crime story']),
+          answer
+        )
       },
       {
-        id: 'epic_fantasy_series',
-        text: 'Est-ce une série de fantasy épique ?',
-        category: 'tv',
-        filterFn: (item, answer) => shouldInclude(matchesKeywords(item, EPIC_FANTASY_KEYWORDS), answer)
-      },
-      {
-        id: 'reality_tv',
+        id: 'tv_reality',
         text: 'Est-ce de la télé-réalité ?',
         category: 'tv',
+        priority: 8,
         filterFn: (item, answer) => shouldInclude(hasGenre(item, [10764, 10767]), answer)
       },
       {
-        id: 'ongoing_series',
-        text: 'Est-ce une série toujours en cours ?',
+        id: 'tv_talk_show',
+        text: 'Est-ce un talk show ?',
         category: 'tv',
+        priority: 8,
+        filterFn: (item, answer) => shouldInclude(hasGenre(item, [10767]), answer)
+      },
+      {
+        id: 'tv_many_episodes',
+        text: 'Y a-t-il plus de 100 épisodes ?',
+        category: 'tv',
+        priority: 5,
         filterFn: (item, answer) => {
-          const year = getReleaseYear(item);
-          return shouldInclude(year >= 2020 && item.popularity > 50, answer);
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.number_of_episodes > 100, answer);
+        }
+      },
+      {
+        id: 'tv_2_3_seasons',
+        text: 'Y a-t-il entre 2 et 3 saisons ?',
+        category: 'tv',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.number_of_seasons >= 2 && tv.number_of_seasons <= 3, answer);
+        }
+      },
+      {
+        id: 'tv_limited_series',
+        text: 'Est-ce une série limitée (moins de 10 épisodes au total) ?',
+        category: 'tv',
+        priority: 6,
+        filterFn: (item, answer) => {
+          const tv = getTVData(item);
+          if (!tv) return shouldInclude(false, answer);
+          return shouldInclude(tv.number_of_episodes <= 10 && tv.number_of_seasons === 1, answer);
         }
       }
     );
   }
 
+  // ============================================================================
+  // MOVIE-SPECIFIC QUESTIONS (15) - Using real data
+  // ============================================================================
+  
+  if (!isTV) {
+    questions.push(
+      {
+        id: 'movie_long',
+        text: 'Dure-t-il plus de 2h30 (150 minutes) ?',
+        category: 'technical',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.runtime || 0) > 150, answer);
+        }
+      },
+      {
+        id: 'movie_short',
+        text: 'Dure-t-il moins de 90 minutes ?',
+        category: 'technical',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.runtime || 999) < 90, answer);
+        }
+      },
+      {
+        id: 'movie_big_budget',
+        text: 'A-t-il un budget de plus de 100 millions $ ?',
+        category: 'technical',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.budget || 0) > 100000000, answer);
+        }
+      },
+      {
+        id: 'movie_box_office_hit',
+        text: 'A-t-il fait plus de 500 millions $ au box-office ?',
+        category: 'technical',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.revenue || 0) > 500000000, answer);
+        }
+      },
+      {
+        id: 'movie_billion_club',
+        text: 'A-t-il fait plus d\'un milliard $ au box-office ?',
+        category: 'technical',
+        priority: 6,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.revenue || 0) > 1000000000, answer);
+        }
+      },
+      {
+        id: 'movie_low_budget',
+        text: 'Est-ce un film à petit budget (moins de 10 millions $) ?',
+        category: 'technical',
+        priority: 5,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.budget || 0) > 0 && (movie.budget || 0) < 10000000, answer);
+        }
+      },
+      {
+        id: 'movie_standard_length',
+        text: 'Dure-t-il entre 1h30 et 2h ?',
+        category: 'technical',
+        priority: 4,
+        filterFn: (item, answer) => {
+          const movie = getMovieData(item);
+          if (!movie) return shouldInclude(false, answer);
+          return shouldInclude((movie.runtime || 0) >= 90 && (movie.runtime || 0) <= 120, answer);
+        }
+      }
+    );
+  }
+
+  // ============================================================================
+  // SPECIFIC FRANCHISES (15)
+  // ============================================================================
+  
+  questions.push(
+    {
+      id: 'franchise_star_wars',
+      text: `Est-ce de l'univers Star Wars ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['star wars', 'jedi', 'sith', 'skywalker', 'mandalorian', 
+          'darth', 'yoda', 'lightsaber', 'force awakens', 'rogue one', 'andor', 'ahsoka']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_harry_potter',
+      text: `Est-ce de l'univers Harry Potter / Fantastic Beasts ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['harry potter', 'hogwarts', 'wizard', 'voldemort', 'fantastic beasts',
+          'dumbledore', 'grindelwald', 'hermione']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_lotr',
+      text: `Est-ce de l'univers Le Seigneur des Anneaux / Hobbit ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['lord of the rings', 'hobbit', 'middle-earth', 'frodo', 'gandalf',
+          'mordor', 'rings of power', 'tolkien', 'gollum']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_mcu',
+      text: 'Est-ce du MCU (Marvel Cinematic Universe) ?',
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        hasProductionCompany(item, PRODUCTION_COMPANIES['Marvel Studios']) ||
+        matchesKeywords(item, ['avengers', 'iron man', 'captain america', 'thor', 'black panther',
+          'spider-man mcu', 'guardians of the galaxy', 'doctor strange', 'ant-man', 'eternals']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_dceu',
+      text: 'Est-ce du DCEU (DC Extended Universe) ?',
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['superman', 'batman', 'wonder woman', 'aquaman', 'justice league',
+          'suicide squad', 'shazam', 'black adam', 'the flash', 'blue beetle']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_fast_furious',
+      text: `Est-ce de l'univers Fast & Furious ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['fast', 'furious', 'dom', 'toretto', 'hobbs and shaw', 'fast x']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_james_bond',
+      text: `Est-ce de l'univers James Bond ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['james bond', 'bond', '007', 'skyfall', 'spectre', 'casino royale',
+          'no time to die', 'goldeneye']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_jurassic',
+      text: `Est-ce de l'univers Jurassic Park / World ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['jurassic park', 'jurassic world', 'dinosaur', 'velociraptor', 
+          't-rex', 'dominion', 'fallen kingdom']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_mission_impossible',
+      text: `Est-ce de l'univers Mission Impossible ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['mission impossible', 'ethan hunt', 'fallout', 'rogue nation',
+          'ghost protocol', 'dead reckoning']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_matrix',
+      text: `Est-ce de l'univers Matrix ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['matrix', 'neo', 'morpheus', 'trinity', 'reloaded', 'revolutions',
+          'resurrections']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_pirates',
+      text: `Est-ce de l'univers Pirates des Caraïbes ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['pirates of the caribbean', 'jack sparrow', 'black pearl',
+          "dead man's chest", "at world's end"]),
+        answer
+      )
+    },
+    {
+      id: 'franchise_john_wick',
+      text: `Est-ce de l'univers John Wick ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['john wick', 'parabellum', 'continental', 'baba yaga']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_conjuring',
+      text: `Est-ce du Conjuring Universe (horreur) ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['conjuring', 'annabelle', 'the nun', 'la llorona', 'warren']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_monsterverse',
+      text: 'Est-ce du MonsterVerse (Godzilla, Kong) ?',
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['godzilla', 'kong', 'king kong', 'skull island', 'monarch',
+          'godzilla vs kong', 'kaiju']),
+        answer
+      )
+    },
+    {
+      id: 'franchise_dune',
+      text: `Est-ce de l'univers Dune ?`,
+      category: 'specific_franchise',
+      priority: 6,
+      filterFn: (item, answer) => shouldInclude(
+        matchesKeywords(item, ['dune', 'arrakis', 'atreides', 'fremen', 'spice', 'paul atreides']),
+        answer
+      )
+    }
+  );
+
   return questions;
 }
 
 // ============================================================================
-// GAME LOGIC
+// GAME LOGIC - IMPROVED ALGORITHM
 // ============================================================================
 
 export function shuffleArray<T>(array: T[]): T[] {
@@ -1366,7 +2016,7 @@ export function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-function scoreQuestion(question: AkinatorQuestion, candidates: MediaItem[]): number {
+function scoreQuestion(question: AkinatorQuestion, candidates: MediaItem[], questionsAsked: number): number {
   if (candidates.length === 0) return 0;
   
   let yesCount = 0;
@@ -1381,11 +2031,23 @@ function scoreQuestion(question: AkinatorQuestion, candidates: MediaItem[]): num
   const yesRatio = yesCount / total;
   const noRatio = noCount / total;
   
-  // Best score when both are around 0.5
+  // Best score when 50/50 split
   const balance = 1 - Math.abs(yesRatio - noRatio);
   const filterPower = Math.min(yesRatio, noRatio) * 2;
   
-  return balance * filterPower;
+  let score = balance * filterPower;
+  
+  // Penalize actor/director questions early in the game (before question 12)
+  if (questionsAsked < 12 && ['actor', 'director'].includes(question.category)) {
+    score *= 0.3;
+  }
+  
+  // Boost priority questions
+  if (question.priority) {
+    score += (question.priority / 100);
+  }
+  
+  return score;
 }
 
 const categoryPriority: Record<string, number> = {
@@ -1393,17 +2055,22 @@ const categoryPriority: Record<string, number> = {
   'period': 2,
   'language': 3,
   'theme': 4,
+  'tv': 3,
+  'platform': 4,
+  'studio': 5,
   'franchise': 5,
   'specific_franchise': 5,
   'subgenre': 6,
-  'popularity': 7,
-  'tv': 3,
+  'popularity': 6,
+  'technical': 7,
   'director': 8,
-  'actor': 8,
-  'era': 4,
+  'actor': 9,
+  'era': 5,
   'location': 6,
   'narrative': 7,
-  'platform': 5,
+  'awards': 7,
+  'characteristics': 6,
+  'year': 4,
 };
 
 export function getNextQuestion(
@@ -1417,25 +2084,32 @@ export function getNextQuestion(
     return null;
   }
 
+  const questionsAsked = askedQuestionIds.length;
+  
   const scoredQuestions = remainingQuestions.map(question => ({
     question,
-    score: scoreQuestion(question, candidates),
+    score: scoreQuestion(question, candidates, questionsAsked),
     priority: categoryPriority[question.category] || 5,
   }));
 
   scoredQuestions.sort((a, b) => {
-    if (Math.abs(a.score - b.score) < 0.1) {
+    // Primary: score
+    if (Math.abs(a.score - b.score) < 0.08) {
+      // Secondary: category priority (lower = earlier)
       return a.priority - b.priority;
     }
     return b.score - a.score;
   });
 
-  const goodQuestions = scoredQuestions.filter(sq => sq.score > 0.1);
+  // Filter to only good questions (threshold 0.15 instead of 0.1)
+  const goodQuestions = scoredQuestions.filter(sq => sq.score > 0.15);
   
   if (goodQuestions.length === 0) {
-    return remainingQuestions[0];
+    // Fallback: pick best available
+    return scoredQuestions[0]?.question || remainingQuestions[0];
   }
 
+  // Pick randomly from top 3 to add variety
   const topQuestions = goodQuestions.slice(0, Math.min(3, goodQuestions.length));
   const randomIndex = Math.floor(Math.random() * topQuestions.length);
   
@@ -1451,13 +2125,15 @@ export function filterCandidates(
   
   const filtered = candidates.filter(candidate => question.filterFn(candidate, answer));
   
+  // Never eliminate ALL candidates
   if (filtered.length === 0) {
-    console.warn('Filter would eliminate all candidates, keeping original pool');
+    console.warn(`[Akinator] Filter "${question.id}" with answer "${answer}" would eliminate all ${candidates.length} candidates - keeping original pool`);
     return candidates;
   }
   
+  // For "probably" / "probably_not", be more lenient
   if (answer === 'probably' || answer === 'probably_not') {
-    const minToKeep = Math.max(1, Math.floor(candidates.length * 0.3));
+    const minToKeep = Math.max(1, Math.floor(candidates.length * 0.4));
     if (filtered.length < minToKeep) {
       const eliminated = candidates.filter(c => !filtered.includes(c));
       const toAdd = shuffleArray(eliminated).slice(0, minToKeep - filtered.length);
@@ -1465,19 +2141,23 @@ export function filterCandidates(
     }
   }
   
+  console.log(`[Akinator] Question "${question.id}" (${answer}): ${candidates.length} → ${filtered.length} candidates`);
+  
   return filtered;
 }
 
 export function pickGuess(candidates: MediaItem[]): MediaItem | null {
   if (candidates.length === 0) return null;
   
+  // Score by popularity + rating
   const scored = candidates.map(c => ({
     item: c,
-    score: (c.popularity * 0.7) + (c.vote_average * c.vote_count * 0.0001),
+    score: (c.popularity * 0.6) + (c.vote_average * c.vote_count * 0.00005),
   }));
   
   scored.sort((a, b) => b.score - a.score);
   
+  // Weight random selection toward top candidates
   const topCount = Math.min(3, scored.length);
   const topCandidates = scored.slice(0, topCount);
   
@@ -1497,27 +2177,30 @@ export function pickGuess(candidates: MediaItem[]): MediaItem | null {
 export function getInitialQuestions(mediaType: MediaType): AkinatorQuestion[] {
   const allQuestions = getQuestions(mediaType);
   
-  // Priority questions for good discrimination
-  const priorityOrder = [
+  // Early priority questions - genres and period first
+  const earlyPriorityIds = [
     'animation',
-    'english',
-    'after_2020',
-    'very_popular',
-    'horror',
+    'horror', 
     'comedy',
-    'superhero',
     'science_fiction',
+    'after_2020',
+    'english',
+    'very_popular',
+    'drama',
     'french',
-    'drama'
+    'action',
+    'romance',
+    'documentary',
+    'fantasy'
   ];
   
   const prioritized: AkinatorQuestion[] = [];
-  for (const id of priorityOrder) {
+  for (const id of earlyPriorityIds) {
     const q = allQuestions.find(q => q.id === id);
     if (q) prioritized.push(q);
   }
   
-  const remaining = allQuestions.filter(q => !priorityOrder.includes(q.id));
+  const remaining = allQuestions.filter(q => !earlyPriorityIds.includes(q.id));
   
   return [...prioritized, ...shuffleArray(remaining)];
 }

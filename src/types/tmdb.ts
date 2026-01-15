@@ -47,7 +47,7 @@ export interface TMDBSearchResponse<T> {
 export interface AkinatorQuestion {
   id: string;
   text: string;
-  category: 'genre' | 'year' | 'popularity' | 'characteristics' | 'language';
+  category: 'genre' | 'subgenre' | 'period' | 'popularity' | 'characteristics' | 'language' | 'theme' | 'franchise' | 'tv' | 'year';
   filterFn: (item: TMDBMovie | TMDBTVShow, answer: AnswerType) => boolean;
 }
 

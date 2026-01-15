@@ -12,7 +12,7 @@ import {
 } from '@/types/tmdb';
 import { getCachedPool, setCachedPool } from './tmdb-cache';
 
-const TMDB_API_KEY = '2e84aa13e9ca7dbe6ba675d776e79c04';
+const TMDB_BEARER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIzMTI2NTNmOTFhNzQzNzMzNzE3OWZlZGI0MmU2ZjM2YSIsIm5iZiI6MTc2ODIxMjQ3Mi41MTUsInN1YiI6IjY5NjRjN2Y4MzRhNDFlN2ZlMTI4NDg1OSIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.BfLl0lhVyyi-HcaAGFB4HnLsPqj6pKQlpgjZzMc68RE';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
@@ -29,7 +29,12 @@ async function rateLimitedFetch<T>(url: string): Promise<T> {
   }
   
   lastRequestTime = Date.now();
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${TMDB_BEARER_TOKEN}`,
+      'Content-Type': 'application/json',
+    }
+  });
   
   if (!response.ok) {
     throw new Error(`TMDB API error: ${response.status}`);
@@ -50,7 +55,6 @@ export function getBackdropUrl(path: string | null, size: 'w300' | 'w780' | 'w12
 
 async function fetchTMDB<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
   const searchParams = new URLSearchParams({
-    api_key: TMDB_API_KEY,
     language: 'fr-FR',
     ...params,
   });

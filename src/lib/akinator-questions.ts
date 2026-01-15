@@ -1,237 +1,342 @@
-import { AkinatorQuestion, AnswerType, TMDBMovie, TMDBTVShow, MOVIE_GENRES, TV_GENRES, MediaType } from '@/types/tmdb';
-import { getReleaseYear, isMovie } from './tmdb';
+import { AkinatorQuestion, AnswerType, TMDBMovie, TMDBTVShow, MediaType, MOVIE_GENRES, TV_GENRES } from '@/types/tmdb';
+import { isMovie, getReleaseYear } from './tmdb';
 
-const currentYear = new Date().getFullYear();
+// Superhero/franchise keywords detection
+const SUPERHERO_KEYWORDS = ['marvel', 'avengers', 'spider', 'batman', 'superman', 'dc', 'x-men', 'iron man', 'captain america', 'thor', 'hulk', 'wonder woman', 'justice league', 'aquaman', 'flash'];
+const FRANCHISE_KEYWORDS = ['2', '3', 'ii', 'iii', 'iv', 'part', 'chapter', 'episode', 'returns', 'revenge', 'rising', 'awakens', 'strikes', 'wars', 'saga'];
 
-// Helper to check if answer leans positive
-function isPositive(answer: AnswerType): boolean {
-  return answer === 'yes' || answer === 'probably';
+function matchesKeywords(item: TMDBMovie | TMDBTVShow, keywords: string[]): boolean {
+  const title = isMovie(item) ? item.title.toLowerCase() : item.name.toLowerCase();
+  const originalTitle = isMovie(item) ? item.original_title.toLowerCase() : item.original_name.toLowerCase();
+  return keywords.some(keyword => title.includes(keyword) || originalTitle.includes(keyword));
 }
 
-// Helper to check if answer leans negative
-function isNegative(answer: AnswerType): boolean {
-  return answer === 'no' || answer === 'probably_not';
+function hasGenre(item: TMDBMovie | TMDBTVShow, genreIds: number[]): boolean {
+  return item.genre_ids.some(id => genreIds.includes(id));
+}
+
+// Apply answer weight to filtering decision
+function shouldInclude(matchesCondition: boolean, answer: AnswerType): boolean {
+  switch (answer) {
+    case 'yes':
+      return matchesCondition;
+    case 'no':
+      return !matchesCondition;
+    case 'probably':
+      return matchesCondition;
+    case 'probably_not':
+      return !matchesCondition;
+    case 'unknown':
+      return true;
+    default:
+      return true;
+  }
 }
 
 export function getQuestions(mediaType: MediaType): AkinatorQuestion[] {
-  const genres = mediaType === 'movie' ? MOVIE_GENRES : TV_GENRES;
-  
-  const questions: AkinatorQuestion[] = [
-    // Popularity questions
+  const baseQuestions: AkinatorQuestion[] = [
+    // === POPULARITY & RATINGS ===
     {
       id: 'very_popular',
-      text: 'Est-ce un film/une série très populaire et connu(e) de tous ?',
+      text: "Est-ce un titre très connu du grand public ?",
       category: 'popularity',
+      filterFn: (item, answer) => shouldInclude(item.popularity > 100, answer),
+    },
+    {
+      id: 'critically_acclaimed',
+      text: "Est-ce considéré comme un chef-d'œuvre ou très bien noté ?",
+      category: 'popularity',
+      filterFn: (item, answer) => shouldInclude(item.vote_average >= 8, answer),
+    },
+    {
+      id: 'cult_classic',
+      text: "Est-ce un film culte ou de niche ?",
+      category: 'popularity',
+      filterFn: (item, answer) => shouldInclude(item.popularity < 50 && item.vote_average >= 7, answer),
+    },
+    
+    // === RELEASE PERIOD ===
+    {
+      id: 'very_recent',
+      text: "Est-ce sorti dans les 3 dernières années (2023-2026) ?",
+      category: 'year',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const isVeryPopular = item.popularity > 50 && item.vote_count > 1000;
-        return isPositive(answer) ? isVeryPopular : !isVeryPopular;
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2023, answer);
       },
     },
     {
-      id: 'high_rated',
-      text: 'Est-ce que ça a une très bonne note (8/10 ou plus) ?',
-      category: 'popularity',
+      id: 'recent_2020s',
+      text: "Est-ce sorti dans les années 2020 (2020-2026) ?",
+      category: 'year',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const isHighRated = item.vote_average >= 8;
-        return isPositive(answer) ? isHighRated : !isHighRated;
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2020, answer);
+      },
+    },
+    {
+      id: 'recent_2010s',
+      text: "Est-ce sorti dans les années 2010 (2010-2019) ?",
+      category: 'year',
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2010 && year <= 2019, answer);
+      },
+    },
+    {
+      id: 'era_2000s',
+      text: "Est-ce sorti dans les années 2000 (2000-2009) ?",
+      category: 'year',
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 2000 && year <= 2009, answer);
+      },
+    },
+    {
+      id: 'classic_pre2000',
+      text: "Est-ce sorti avant l'an 2000 ?",
+      category: 'year',
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year > 0 && year < 2000, answer);
+      },
+    },
+    {
+      id: 'era_90s',
+      text: "Est-ce sorti dans les années 90 ?",
+      category: 'year',
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year >= 1990 && year <= 1999, answer);
+      },
+    },
+    {
+      id: 'era_80s_or_before',
+      text: "Est-ce sorti dans les années 80 ou avant ?",
+      category: 'year',
+      filterFn: (item, answer) => {
+        const year = getReleaseYear(item);
+        return shouldInclude(year > 0 && year <= 1989, answer);
       },
     },
     
-    // Year questions
+    // === LANGUAGE & ORIGIN ===
     {
-      id: 'recent',
-      text: 'Est-ce sorti après 2020 ?',
-      category: 'year',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const year = getReleaseYear(item);
-        const isRecent = year >= 2020;
-        return isPositive(answer) ? isRecent : !isRecent;
-      },
+      id: 'english_language',
+      text: "Est-ce en anglais à l'origine ?",
+      category: 'language',
+      filterFn: (item, answer) => shouldInclude(item.original_language === 'en', answer),
     },
     {
-      id: 'modern',
-      text: 'Est-ce sorti après 2010 ?',
-      category: 'year',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const year = getReleaseYear(item);
-        const isModern = year >= 2010;
-        return isPositive(answer) ? isModern : !isModern;
-      },
+      id: 'french_language',
+      text: "Est-ce un film/série français(e) ?",
+      category: 'language',
+      filterFn: (item, answer) => shouldInclude(item.original_language === 'fr', answer),
     },
     {
-      id: 'classic',
-      text: 'Est-ce un classique (avant 2000) ?',
-      category: 'year',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const year = getReleaseYear(item);
-        const isClassic = year < 2000 && year > 0;
-        return isPositive(answer) ? isClassic : !isClassic;
-      },
+      id: 'asian_origin',
+      text: "Est-ce d'origine asiatique (Japon, Corée, Chine) ?",
+      category: 'language',
+      filterFn: (item, answer) => shouldInclude(['ja', 'ko', 'zh', 'cn'].includes(item.original_language), answer),
+    },
+    {
+      id: 'european_non_english',
+      text: "Est-ce européen mais pas anglophone ?",
+      category: 'language',
+      filterFn: (item, answer) => shouldInclude(['fr', 'de', 'es', 'it', 'pt', 'nl', 'sv', 'da', 'no', 'pl'].includes(item.original_language), answer),
     },
     
-    // Genre questions
+    // === CHARACTERISTICS & THEMES ===
     {
-      id: 'genre_action',
-      text: "Est-ce un film/une série d'action avec des scènes de combat ou de poursuite ?",
+      id: 'superhero',
+      text: "Est-ce un film/série de super-héros (Marvel, DC) ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const isSuperHero = matchesKeywords(item, SUPERHERO_KEYWORDS) || 
+                           hasGenre(item, [28, 878, 14, 10765]) && matchesKeywords(item, ['man', 'woman', 'super', 'hero']);
+        return shouldInclude(isSuperHero, answer);
+      },
+    },
+    {
+      id: 'franchise_sequel',
+      text: "Est-ce une suite, un remake ou fait partie d'une franchise ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => shouldInclude(matchesKeywords(item, FRANCHISE_KEYWORDS), answer),
+    },
+    {
+      id: 'adult_content',
+      text: "Est-ce réservé à un public adulte (violent, mature) ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const isAdult = (isMovie(item) && item.adult) || hasGenre(item, [27, 53, 80]);
+        return shouldInclude(isAdult, answer);
+      },
+    },
+    {
+      id: 'family_friendly',
+      text: "Est-ce adapté aux enfants/familles ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const isFamily = hasGenre(item, [16, 10751, 10762]);
+        return shouldInclude(isFamily, answer);
+      },
+    },
+    {
+      id: 'based_on_book',
+      text: "Est-ce basé sur un livre, comic ou jeu vidéo ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const adaptationKeywords = ['harry potter', 'lord of the rings', 'game of thrones', 'hunger games', 'twilight', 'dune', 'witcher', 'resident evil', 'assassin', 'tomb raider'];
+        return shouldInclude(matchesKeywords(item, adaptationKeywords), answer);
+      },
+    },
+    {
+      id: 'true_story',
+      text: "Est-ce basé sur une histoire vraie ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const trueStoryGenres = [36, 99];
+        return shouldInclude(hasGenre(item, trueStoryGenres), answer);
+      },
+    },
+  ];
+
+  // === GENRE-SPECIFIC QUESTIONS ===
+  const genreQuestions: AkinatorQuestion[] = [
+    {
+      id: 'genre_action_adventure',
+      text: "Y a-t-il beaucoup d'action et d'aventure ?",
       category: 'genre',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
         const actionGenres = mediaType === 'movie' ? [28, 12] : [10759];
-        const hasAction = item.genre_ids.some(g => actionGenres.includes(g));
-        return isPositive(answer) ? hasAction : !hasAction;
+        return shouldInclude(hasGenre(item, actionGenres), answer);
       },
     },
     {
       id: 'genre_comedy',
-      text: 'Est-ce une comédie qui fait rire ?',
+      text: "Est-ce une comédie ou c'est drôle ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasComedy = item.genre_ids.includes(35);
-        return isPositive(answer) ? hasComedy : !hasComedy;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [35]), answer),
     },
     {
       id: 'genre_drama',
-      text: "Est-ce un drame avec des émotions fortes ?",
+      text: "Est-ce un drame sérieux/émouvant ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasDrama = item.genre_ids.includes(18);
-        return isPositive(answer) ? hasDrama : !hasDrama;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [18]), answer),
     },
     {
-      id: 'genre_horror',
-      text: 'Est-ce un film/une série qui fait peur (horreur/thriller) ?',
+      id: 'genre_horror_thriller',
+      text: "Est-ce effrayant ou angoissant (horreur/thriller) ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasHorror = item.genre_ids.some(g => [27, 53].includes(g));
-        return isPositive(answer) ? hasHorror : !hasHorror;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [27, 53]), answer),
     },
     {
       id: 'genre_scifi',
-      text: "Y a-t-il de la science-fiction ou du fantastique ?",
+      text: "Est-ce de la science-fiction ?",
       category: 'genre',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const scifiGenres = mediaType === 'movie' ? [878, 14] : [10765];
-        const hasScifi = item.genre_ids.some(g => scifiGenres.includes(g));
-        return isPositive(answer) ? hasScifi : !hasScifi;
+        const scifiGenres = mediaType === 'movie' ? [878] : [10765];
+        return shouldInclude(hasGenre(item, scifiGenres), answer);
       },
     },
     {
-      id: 'genre_animation',
-      text: "Est-ce un film/une série d'animation ?",
+      id: 'genre_fantasy',
+      text: "Est-ce fantastique/fantasy (magie, créatures) ?",
       category: 'genre',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasAnimation = item.genre_ids.includes(16);
-        return isPositive(answer) ? hasAnimation : !hasAnimation;
+        const fantasyGenres = mediaType === 'movie' ? [14] : [10765];
+        return shouldInclude(hasGenre(item, fantasyGenres), answer);
       },
     },
     {
       id: 'genre_romance',
       text: "Y a-t-il une histoire d'amour importante ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasRomance = item.genre_ids.includes(10749);
-        return isPositive(answer) ? hasRomance : !hasRomance;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10749]), answer),
     },
     {
-      id: 'genre_crime',
-      text: "Est-ce lié au crime, à la police ou aux enquêtes ?",
+      id: 'genre_animation',
+      text: "Est-ce un film/série d'animation ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasCrime = item.genre_ids.some(g => [80, 9648].includes(g));
-        return isPositive(answer) ? hasCrime : !hasCrime;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [16]), answer),
+    },
+    {
+      id: 'genre_crime_mystery',
+      text: "Y a-t-il une enquête policière ou un mystère ?",
+      category: 'genre',
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [80, 9648]), answer),
     },
     {
       id: 'genre_documentary',
       text: "Est-ce un documentaire ?",
       category: 'genre',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const hasDoc = item.genre_ids.includes(99);
-        return isPositive(answer) ? hasDoc : !hasDoc;
-      },
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [99]), answer),
     },
-    
-    // Characteristics
     {
-      id: 'family_friendly',
-      text: "Est-ce adapté pour toute la famille / les enfants ?",
-      category: 'characteristics',
+      id: 'genre_war',
+      text: "Est-ce sur la guerre ou le militaire ?",
+      category: 'genre',
       filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const familyGenres = mediaType === 'movie' ? [10751, 16] : [10751, 10762, 16];
-        const isFamilyFriendly = item.genre_ids.some(g => familyGenres.includes(g)) && !item.genre_ids.some(g => [27, 53].includes(g));
-        return isPositive(answer) ? isFamilyFriendly : !isFamilyFriendly;
+        const warGenres = mediaType === 'movie' ? [10752] : [10768];
+        return shouldInclude(hasGenre(item, warGenres), answer);
       },
     },
     {
-      id: 'adult_content',
-      text: "Est-ce réservé aux adultes (contenu mature) ?",
-      category: 'characteristics',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        if (isMovie(item)) {
-          const isAdult = item.adult || item.genre_ids.some(g => [27, 53].includes(g));
-          return isPositive(answer) ? isAdult : !isAdult;
-        }
-        return true;
-      },
-    },
-    
-    // Language questions
-    {
-      id: 'english',
-      text: "Est-ce une production américaine ou anglaise ?",
-      category: 'language',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const isEnglish = item.original_language === 'en';
-        return isPositive(answer) ? isEnglish : !isEnglish;
-      },
+      id: 'genre_musical',
+      text: "Y a-t-il beaucoup de musique ou de chansons ?",
+      category: 'genre',
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [10402]), answer),
     },
     {
-      id: 'french',
-      text: "Est-ce une production française ?",
-      category: 'language',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const isFrench = item.original_language === 'fr';
-        return isPositive(answer) ? isFrench : !isFrench;
-      },
-    },
-    {
-      id: 'asian',
-      text: "Est-ce une production asiatique (Japon, Corée, Chine...) ?",
-      category: 'language',
-      filterFn: (item, answer) => {
-        if (answer === 'unknown') return true;
-        const asianLanguages = ['ja', 'ko', 'zh', 'cn'];
-        const isAsian = asianLanguages.includes(item.original_language);
-        return isPositive(answer) ? isAsian : !isAsian;
-      },
+      id: 'genre_western',
+      text: "Est-ce un western ?",
+      category: 'genre',
+      filterFn: (item, answer) => shouldInclude(hasGenre(item, [37]), answer),
     },
   ];
-  
-  return questions;
+
+  // TV-specific questions
+  const tvQuestions: AkinatorQuestion[] = mediaType === 'tv' ? [
+    {
+      id: 'tv_long_running',
+      text: "Est-ce une série avec beaucoup de saisons (5+) ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        return shouldInclude(item.vote_count > 5000, answer);
+      },
+    },
+    {
+      id: 'tv_miniseries',
+      text: "Est-ce une mini-série ou série limitée ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        return shouldInclude(item.vote_count < 1000 && item.vote_average >= 7, answer);
+      },
+    },
+    {
+      id: 'tv_ongoing',
+      text: "Est-ce une série toujours en cours de diffusion ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const tvItem = item as TMDBTVShow;
+        const firstAirYear = tvItem.first_air_date ? new Date(tvItem.first_air_date).getFullYear() : 0;
+        return shouldInclude(firstAirYear >= 2020 && item.popularity > 50, answer);
+      },
+    },
+    {
+      id: 'tv_streaming_original',
+      text: "Est-ce une production Netflix, Amazon ou Disney+ ?",
+      category: 'characteristics',
+      filterFn: (item, answer) => {
+        const streamingKeywords = ['netflix', 'amazon', 'disney', 'hbo', 'apple'];
+        return shouldInclude(matchesKeywords(item, streamingKeywords) || item.popularity > 80, answer);
+      },
+    },
+  ] : [];
+
+  return [...baseQuestions, ...genreQuestions, ...tvQuestions];
 }
 
-// Shuffle array using Fisher-Yates algorithm
 export function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -241,7 +346,44 @@ export function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-// Get a smart ordering of questions based on remaining candidates
+// Score a question by how well it splits the candidates (closer to 50/50 = better)
+function scoreQuestion(question: AkinatorQuestion, candidates: (TMDBMovie | TMDBTVShow)[]): number {
+  if (candidates.length === 0) return 0;
+  
+  let yesCount = 0;
+  let noCount = 0;
+  
+  for (const candidate of candidates) {
+    if (question.filterFn(candidate, 'yes')) {
+      yesCount++;
+    }
+    if (question.filterFn(candidate, 'no')) {
+      noCount++;
+    }
+  }
+  
+  const total = candidates.length;
+  const yesRatio = yesCount / total;
+  const noRatio = noCount / total;
+  
+  // Best score when both are around 0.5
+  const balance = 1 - Math.abs(yesRatio - noRatio);
+  
+  // Penalize questions that don't filter much
+  const filterPower = Math.min(yesRatio, noRatio) * 2;
+  
+  return balance * filterPower;
+}
+
+// Category priority for question order
+const categoryPriority: Record<string, number> = {
+  'genre': 1,
+  'year': 2,
+  'language': 3,
+  'characteristics': 4,
+  'popularity': 5,
+};
+
 export function getNextQuestion(
   questions: AkinatorQuestion[],
   askedQuestionIds: string[],
@@ -249,35 +391,39 @@ export function getNextQuestion(
 ): AkinatorQuestion | null {
   const remainingQuestions = questions.filter(q => !askedQuestionIds.includes(q.id));
   
-  if (remainingQuestions.length === 0) return null;
-  
-  // Score each question based on how well it splits the candidates
-  const scoredQuestions = remainingQuestions.map(question => {
-    let yesCount = 0;
-    let noCount = 0;
-    
-    candidates.forEach(candidate => {
-      if (question.filterFn(candidate, 'yes')) yesCount++;
-      if (question.filterFn(candidate, 'no')) noCount++;
-    });
-    
-    // Best questions split candidates close to 50/50
-    const total = candidates.length;
-    const balance = Math.abs(yesCount - noCount);
-    const score = total - balance;
-    
-    return { question, score };
+  if (remainingQuestions.length === 0 || candidates.length <= 1) {
+    return null;
+  }
+
+  // Score all remaining questions
+  const scoredQuestions = remainingQuestions.map(question => ({
+    question,
+    score: scoreQuestion(question, candidates),
+    priority: categoryPriority[question.category] || 5,
+  }));
+
+  // Sort by: high score first, then by category priority
+  scoredQuestions.sort((a, b) => {
+    if (Math.abs(a.score - b.score) < 0.1) {
+      return a.priority - b.priority;
+    }
+    return b.score - a.score;
   });
+
+  // Filter out questions with very low scores
+  const goodQuestions = scoredQuestions.filter(sq => sq.score > 0.1);
   
-  // Sort by score and pick the best one (with some randomization for variety)
-  scoredQuestions.sort((a, b) => b.score - a.score);
+  if (goodQuestions.length === 0) {
+    return remainingQuestions[0];
+  }
+
+  // Add randomness among top questions
+  const topQuestions = goodQuestions.slice(0, Math.min(3, goodQuestions.length));
+  const randomIndex = Math.floor(Math.random() * topQuestions.length);
   
-  // Pick from top 3 for some variety
-  const topQuestions = scoredQuestions.slice(0, Math.min(3, scoredQuestions.length));
-  return topQuestions[Math.floor(Math.random() * topQuestions.length)].question;
+  return topQuestions[randomIndex].question;
 }
 
-// Filter candidates based on answer
 export function filterCandidates(
   candidates: (TMDBMovie | TMDBTVShow)[],
   question: AkinatorQuestion,
@@ -285,17 +431,68 @@ export function filterCandidates(
 ): (TMDBMovie | TMDBTVShow)[] {
   if (answer === 'unknown') return candidates;
   
-  return candidates.filter(candidate => question.filterFn(candidate, answer));
+  const filtered = candidates.filter(candidate => question.filterFn(candidate, answer));
+  
+  // Never reduce to 0 candidates
+  if (filtered.length === 0) {
+    console.warn('Filter would eliminate all candidates, keeping original pool');
+    return candidates;
+  }
+  
+  // For uncertain answers, keep more candidates
+  if (answer === 'probably' || answer === 'probably_not') {
+    const minToKeep = Math.max(1, Math.floor(candidates.length * 0.3));
+    if (filtered.length < minToKeep) {
+      const eliminated = candidates.filter(c => !filtered.includes(c));
+      const toAdd = shuffleArray(eliminated).slice(0, minToKeep - filtered.length);
+      return [...filtered, ...toAdd];
+    }
+  }
+  
+  return filtered;
 }
 
-// Pick a guess from candidates
 export function pickGuess(candidates: (TMDBMovie | TMDBTVShow)[]): TMDBMovie | TMDBTVShow | null {
   if (candidates.length === 0) return null;
   
-  // Prefer more popular items as guesses
-  const sorted = [...candidates].sort((a, b) => b.popularity - a.popularity);
+  // Sort by popularity + vote score
+  const scored = candidates.map(c => ({
+    item: c,
+    score: (c.popularity * 0.7) + (c.vote_average * c.vote_count * 0.0001),
+  }));
   
-  // Pick from top 5 with some randomization
-  const topCandidates = sorted.slice(0, Math.min(5, sorted.length));
-  return topCandidates[Math.floor(Math.random() * topCandidates.length)];
+  scored.sort((a, b) => b.score - a.score);
+  
+  const topCount = Math.min(3, scored.length);
+  const topCandidates = scored.slice(0, topCount);
+  
+  // Weighted random selection
+  const totalScore = topCandidates.reduce((sum, c) => sum + c.score, 0);
+  let random = Math.random() * totalScore;
+  
+  for (const candidate of topCandidates) {
+    random -= candidate.score;
+    if (random <= 0) {
+      return candidate.item;
+    }
+  }
+  
+  return topCandidates[0].item;
+}
+
+// Get initial questions prioritized for a good start
+export function getInitialQuestions(mediaType: MediaType): AkinatorQuestion[] {
+  const allQuestions = getQuestions(mediaType);
+  
+  const priorityOrder = ['genre_animation', 'recent_2020s', 'english_language', 'genre_action_adventure', 'genre_comedy'];
+  
+  const prioritized: AkinatorQuestion[] = [];
+  for (const id of priorityOrder) {
+    const q = allQuestions.find(q => q.id === id);
+    if (q) prioritized.push(q);
+  }
+  
+  const remaining = allQuestions.filter(q => !priorityOrder.includes(q.id));
+  
+  return [...prioritized, ...shuffleArray(remaining)];
 }

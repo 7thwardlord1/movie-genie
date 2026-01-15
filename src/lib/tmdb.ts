@@ -68,21 +68,66 @@ export async function getMediaPool(type: 'movie' | 'tv'): Promise<(TMDBMovie | T
   
   try {
     if (type === 'movie') {
-      const [popular1, popular2, topRated1, topRated2] = await Promise.all([
+      // Fetch a much larger and more diverse pool
+      const [
+        popular1, popular2, popular3, popular4, popular5,
+        topRated1, topRated2, topRated3,
+        discover2020s, discover2010s, discover2000s, discover90s, discover80s,
+        discoverAction, discoverComedy, discoverDrama, discoverSciFi, discoverHorror
+      ] = await Promise.all([
         getPopularMovies(1),
         getPopularMovies(2),
+        getPopularMovies(3),
+        getPopularMovies(4),
+        getPopularMovies(5),
         getTopRatedMovies(1),
         getTopRatedMovies(2),
+        getTopRatedMovies(3),
+        // By decade
+        discoverMovies({ 'primary_release_date.gte': '2020-01-01', sort_by: 'popularity.desc' }),
+        discoverMovies({ 'primary_release_date.gte': '2010-01-01', 'primary_release_date.lte': '2019-12-31', sort_by: 'popularity.desc' }),
+        discoverMovies({ 'primary_release_date.gte': '2000-01-01', 'primary_release_date.lte': '2009-12-31', sort_by: 'popularity.desc' }),
+        discoverMovies({ 'primary_release_date.gte': '1990-01-01', 'primary_release_date.lte': '1999-12-31', sort_by: 'popularity.desc' }),
+        discoverMovies({ 'primary_release_date.gte': '1980-01-01', 'primary_release_date.lte': '1989-12-31', sort_by: 'popularity.desc' }),
+        // By genre
+        discoverMovies({ with_genres: '28', sort_by: 'popularity.desc' }), // Action
+        discoverMovies({ with_genres: '35', sort_by: 'popularity.desc' }), // Comedy
+        discoverMovies({ with_genres: '18', sort_by: 'popularity.desc' }), // Drama
+        discoverMovies({ with_genres: '878', sort_by: 'popularity.desc' }), // Sci-Fi
+        discoverMovies({ with_genres: '27', sort_by: 'popularity.desc' }), // Horror
       ]);
-      pool.push(...popular1.results, ...popular2.results, ...topRated1.results, ...topRated2.results);
+      pool.push(
+        ...popular1.results, ...popular2.results, ...popular3.results, ...popular4.results, ...popular5.results,
+        ...topRated1.results, ...topRated2.results, ...topRated3.results,
+        ...discover2020s.results, ...discover2010s.results, ...discover2000s.results, ...discover90s.results, ...discover80s.results,
+        ...discoverAction.results, ...discoverComedy.results, ...discoverDrama.results, ...discoverSciFi.results, ...discoverHorror.results
+      );
     } else {
-      const [popular1, popular2, topRated1, topRated2] = await Promise.all([
+      const [
+        popular1, popular2, popular3, popular4, popular5,
+        topRated1, topRated2, topRated3,
+        discoverDrama, discoverComedy, discoverCrime, discoverSciFi, discoverAnimation
+      ] = await Promise.all([
         getPopularTVShows(1),
         getPopularTVShows(2),
+        getPopularTVShows(3),
+        getPopularTVShows(4),
+        getPopularTVShows(5),
         getTopRatedTVShows(1),
         getTopRatedTVShows(2),
+        getTopRatedTVShows(3),
+        // By genre
+        discoverTVShows({ with_genres: '18', sort_by: 'popularity.desc' }), // Drama
+        discoverTVShows({ with_genres: '35', sort_by: 'popularity.desc' }), // Comedy
+        discoverTVShows({ with_genres: '80', sort_by: 'popularity.desc' }), // Crime
+        discoverTVShows({ with_genres: '10765', sort_by: 'popularity.desc' }), // Sci-Fi & Fantasy
+        discoverTVShows({ with_genres: '16', sort_by: 'popularity.desc' }), // Animation
       ]);
-      pool.push(...popular1.results, ...popular2.results, ...topRated1.results, ...topRated2.results);
+      pool.push(
+        ...popular1.results, ...popular2.results, ...popular3.results, ...popular4.results, ...popular5.results,
+        ...topRated1.results, ...topRated2.results, ...topRated3.results,
+        ...discoverDrama.results, ...discoverComedy.results, ...discoverCrime.results, ...discoverSciFi.results, ...discoverAnimation.results
+      );
     }
   } catch (error) {
     console.error('Error fetching media pool:', error);
@@ -93,7 +138,17 @@ export async function getMediaPool(type: 'movie' | 'tv'): Promise<(TMDBMovie | T
     index === self.findIndex(t => t.id === item.id)
   );
   
-  return uniquePool;
+  // Shuffle for variety
+  return shuffleArray(uniquePool);
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 export function isMovie(item: TMDBMovie | TMDBTVShow): item is TMDBMovie {

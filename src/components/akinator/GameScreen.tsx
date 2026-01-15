@@ -13,6 +13,7 @@ export function GameScreen() {
     currentQuestion,
     isLoading,
     isGuessing,
+    loadingProgress,
     startGame,
     answerQuestion,
     confirmGuess,
@@ -23,7 +24,7 @@ export function GameScreen() {
 
   // Landing screen - no media type selected
   if (!mediaType) {
-    return <LandingScreen onStart={startGame} isLoading={isLoading} />;
+    return <LandingScreen onStart={startGame} isLoading={isLoading} loadingProgress={loadingProgress} />;
   }
 
   // Victory/Defeat screen
